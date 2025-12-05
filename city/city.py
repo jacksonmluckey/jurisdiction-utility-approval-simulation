@@ -385,3 +385,7 @@ class City:
     def average_density(self) -> float:
         """Get average density in units per acre"""
         return self.total_units / self.total_area_acres if self.total_area_acres > 0 else 0
+
+    def get_center_info(self) -> List[dict]:
+        """Get information about placed centers"""
+        return self.centers

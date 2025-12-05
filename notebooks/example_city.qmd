@@ -418,15 +418,15 @@ city_config = CityConfig(
 # Configure polycentric density
 polycentric_config = PolycentricConfig(
     num_centers=8,
-    center_distribution="clustered",
-    primary_density=80,
+    center_distribution="uniform",
+    primary_density=50,
     density_decay_rate=0.2
 )
 
 main_roads = TransportationConfig(
     corridor_type=CorridorType.INTER_CENTER,
     corridor_width_blocks=3,
-    density_multiplier=1.4,
+    density_multiplier=1.3,
     connect_all_centers=True
 )
 
@@ -434,14 +434,14 @@ main_roads = TransportationConfig(
 transit_grid = TransportationConfig(
     corridor_type=CorridorType.GRID,
     corridor_width_blocks=1,
-    density_multiplier=1.2
+    density_multiplier=1.1
 )
 
 # 3. Radial corridors from center
 radial = TransportationConfig(
     corridor_type=CorridorType.RADIAL,
     corridor_width_blocks=2,
-    density_multiplier=1.3,
+    density_multiplier=1.2,
     radial_corridors_count=6
 )
 
