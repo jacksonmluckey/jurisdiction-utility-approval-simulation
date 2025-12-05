@@ -1,0 +1,114 @@
+---
+title: "Polycentric City Visualization Example"
+format: html
+jupyter: python3
+---
+
+This notebook demonstrates how to generate and visualize polycentric city density patterns.
+
+## Setup
+
+```{python}
+import sys
+sys.path.append('..')
+
+from city import PolycentricCity, PolycentricConfig
+from city import visualize_grid, visualize_population, visualize_units, print_grid_summary
+```
+
+## Generate a Polycentric City
+
+Create a city with 3 centers distributed uniformly:
+
+```{python}
+# Configure the city
+config = PolycentricConfig(
+    num_centers=5,
+    center_distribution="uniform",
+    primary_density=18.0,
+    density_decay_rate=0.1,
+    center_strength_decay=0.6,
+    persons_per_unit=2.5
+)
+
+# Generate the city
+city = PolycentricCity(grid_rows=100, grid_cols=100, config=config)
+grid = city.generate()
+
+# Show summary
+city.visualize_summary()
+```
+
+## Visualize the City
+
+### Combined View (Population + Units)
+
+```{python}
+#| fig-width: 12
+#| fig-height: 5
+
+visualize_grid(grid, show=True)
+```
+
+### Population Distribution
+
+```{python}
+#| fig-width: 8
+#| fig-height: 7
+
+visualize_population(grid, show=True)
+```
+
+### Housing Units Distribution
+
+```{python}
+#| fig-width: 8
+#| fig-height: 7
+
+visualize_units(grid, show=True)
+```
+
+## Grid Statistics
+
+```{python}
+print_grid_summary(grid)
+```
+
+## Compare Different Configurations
+
+### Clustered Centers
+
+```{python}
+#| fig-width: 12
+#| fig-height: 5
+
+config_clustered = PolycentricConfig(
+    num_centers=3,
+    center_distribution="clustered",
+    primary_density=18.0
+)
+
+city_clustered = PolycentricCity(grid_rows=30, grid_cols=30, config=config_clustered)
+grid_clustered = city_clustered.generate()
+
+visualize_grid(grid_clustered, show=True)
+```
+
+### Random Centers
+
+```{python}
+#| fig-width: 12
+#| fig-height: 5
+
+config_random = PolycentricConfig(
+    num_centers=5,
+    center_distribution="random",
+    primary_density=18.0,
+    min_center_separation_blocks=8
+)
+
+city_random = PolycentricCity(grid_rows=30, grid_cols=30, config=config_random)
+grid_random = city_random.generate()
+
+visualize_grid(grid_random, show=True)
+```
