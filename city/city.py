@@ -177,78 +177,30 @@ class City:
         return self.grid
 
     def _generate_polycentric_density(self):
-        """Generate density using polycentric model"""
-        # Update polycentric config with city parameters
-        if self.polycentric_config.block_area_acres != self.config.block_area_acres:
-            self.polycentric_config.block_area_acres = self.config.block_area_acres
-        if self.polycentric_config.persons_per_unit != self.config.persons_per_unit:
-            self.polycentric_config.persons_per_unit = self.config.persons_per_unit
-
-        # Place centers
-        self._place_centers()
-
-        # Calculate densities based on distance from centers
-        self._calculate_densities()
-
-    def _place_centers(self):
-        """Place employment/activity centers based on distribution strategy"""
+        """Generate density using polycentric model by delegating to PolycentricCity"""
         from .polycentric_city import PolycentricCity
 
-        # Use PolycentricCity's center placement logic
+        # Update polycentric config with city parameters to ensure consistency
+        self.polycentric_config.block_area_acres = self.config.block_area_acres
+        self.polycentric_config.persons_per_unit = self.config.persons_per_unit
+        self.polycentric_config.units_noise = self.config.units_noise
+
+        # Create temporary PolycentricCity to handle density generation
+        # Don't pass transport_configs - we'll handle that separately in City
         temp_city = PolycentricCity(
             grid_rows=self.config.height,
             grid_cols=self.config.width,
-            config=self.polycentric_config
+            config=self.polycentric_config,
+            transport_configs=None
         )
-        temp_city._place_centers()
+        temp_city.generate()
+
+        # Copy results back to our grid
         self.centers = temp_city.centers
-
-    def _calculate_densities(self):
-        """Calculate housing units and population using additive exponential model"""
-        for row in range(self.config.height):
-            for col in range(self.config.width):
-                block_density = 0.0
-
-                # Sum contributions from all centers
-                for center in self.centers:
-                    distance = self._calculate_distance(
-                        (row, col),
-                        center['position']
-                    )
-
-                    # Exponential decay: D = D0 * exp(-b * distance)
-                    contribution = center['peak_density'] * np.exp(
-                        -self.polycentric_config.density_decay_rate * distance
-                    )
-                    block_density += contribution
-
-                # Convert density to housing units
-                base_units = int(block_density * self.config.block_area_acres)
-
-                # Apply noise to units if configured
-                noise_value = None
-                units = base_units
-                if self.config.units_noise is not None:
-                    if callable(self.config.units_noise):
-                        # Function that takes base_units and returns noise value
-                        noise_value = self.config.units_noise(base_units)
-                    else:
-                        # Float scaling factor: std_dev = units_noise * base_units
-                        std_dev = self.config.units_noise * base_units
-                        noise_value = np.random.normal(0, std_dev)
-                    units = max(0, int(base_units + noise_value))
-
-                # Calculate population based on whether persons_per_unit is callable
-                if callable(self.config.persons_per_unit):
-                    population = units * self.config.persons_per_unit(units, noise_value)
-                else:
-                    population = units * self.config.persons_per_unit
-
-                # Update the block
-                block = self.grid.get_block(col, row)
-                if block:
-                    block.units = units
-                    block.population = population
+        for i, block in enumerate(self.grid.blocks):
+            temp_block = temp_city.grid.blocks[i]
+            block.units = temp_block.units
+            block.population = temp_block.population
 
     def _generate_uniform_density(self):
         """Generate uniform density across the city (fallback if no polycentric config)"""
@@ -329,10 +281,6 @@ class City:
                     block.population = block.units * self.config.persons_per_unit(block.units, None)
                 else:
                     block.population = block.units * self.config.persons_per_unit
-
-    def _calculate_distance(self, pos1: tuple, pos2: tuple) -> float:
-        """Calculate Euclidean distance between two positions"""
-        return np.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
     def visualize(self, save_path: Optional[str] = None, show: bool = True):
         """
