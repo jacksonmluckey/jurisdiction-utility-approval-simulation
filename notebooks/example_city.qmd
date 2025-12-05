@@ -912,3 +912,407 @@ grid = city_sf_like.generate()
 # Pass city object directly
 visualize_with_corridors(city_sf_like, show=True)
 ```
+
+## Commercial Development: Offices and Shops
+
+The city simulation now includes office and shop/retail units that follow realistic spatial patterns.
+
+### Example 13: Basic City with Commercial Development
+
+Offices and shops are automatically generated based on zoning and location:
+
+```{python}
+print("\n" + "=" * 70)
+print("EXAMPLE 13: City with Offices and Shops")
+print("=" * 70)
+
+# Configure city with commercial parameters
+commercial_config = CityConfig(
+    width=50,
+    height=50,
+    block_area_acres=2.47,
+    max_density_units_per_acre=60.0,
+    persons_per_unit=2.5,
+    # Commercial density parameters
+    max_office_density_per_acre=30.0,
+    max_shop_density_per_acre=20.0,
+    office_center_concentration=0.15,  # Offices concentrated at centers
+    shop_center_concentration=0.10,    # Shops less concentrated
+    shop_corridor_multiplier=1.3,      # 30% boost for shops on corridors
+    random_seed=42
+)
+
+polycentric_commercial = PolycentricConfig(
+    num_centers=3,
+    center_distribution="uniform",
+    primary_density=30.0,
+    density_decay_rate=0.15
+)
+
+# Add zoning to enable commercial uses
+zoning_commercial = ZoningConfig(
+    enabled=True,
+    center_radius_blocks=4  # Larger commercial zones at centers
+)
+
+city_commercial = City(
+    config=commercial_config,
+    polycentric_config=polycentric_commercial,
+    zoning_config=zoning_commercial
+)
+city_commercial.generate()
+city_commercial.summary()
+
+# Show some example blocks
+print("\nSample blocks showing commercial development:")
+sample_indices = [1200, 1225, 1250, 1275, 1300]
+for idx in sample_indices:
+    block = city_commercial.grid.blocks[idx]
+    print(f"  Block ({block.x}, {block.y}): {block.units} units, "
+          f"{block.offices} offices, {block.shops} shops")
+```
+
+### Example 14: Commercial Concentration at Centers vs Corridors
+
+Compare office and shop distributions to see how they differ:
+
+```{python}
+print("\n" + "=" * 70)
+print("EXAMPLE 14: Commercial Development with Transportation Corridors")
+print("=" * 70)
+
+# City with transit corridors to see shop concentration
+corridor_city_config = CityConfig(
+    width=60,
+    height=60,
+    block_area_acres=2.47,
+    max_density_units_per_acre=70.0,
+    persons_per_unit=2.5,
+    max_office_density_per_acre=40.0,    # Higher office density
+    max_shop_density_per_acre=25.0,      # Higher shop density
+    office_center_concentration=0.20,     # Very concentrated offices
+    shop_center_concentration=0.08,       # More dispersed shops
+    shop_corridor_multiplier=1.5,         # 50% boost on corridors
+    random_seed=42
+)
+
+polycentric_corridor = PolycentricConfig(
+    num_centers=4,
+    center_distribution="uniform",
+    primary_density=35.0,
+    density_decay_rate=0.12
+)
+
+# Grid transit to create many corridors
+grid_transit = TransportationConfig(
+    corridor_type=CorridorType.GRID,
+    corridor_width_blocks=1,
+    density_multiplier=1.15,
+    grid_spacing_blocks=8  # Frequent grid
+)
+
+zoning_corridor = ZoningConfig(
+    enabled=True,
+    center_radius_blocks=5
+)
+
+city_corridor = City(
+    config=corridor_city_config,
+    polycentric_config=polycentric_corridor,
+    transport_configs=[grid_transit],
+    zoning_config=zoning_corridor
+)
+city_corridor.generate()
+city_corridor.summary()
+
+# Analyze office vs shop patterns
+print("\nAnalyzing commercial patterns:")
+
+# Find center blocks (high offices)
+center_blocks = sorted(city_corridor.grid.blocks, key=lambda b: b.offices, reverse=True)[:50]
+avg_center_offices = np.mean([b.offices for b in center_blocks])
+avg_center_shops = np.mean([b.shops for b in center_blocks])
+
+print(f"  Top 50 office blocks (centers):")
+print(f"    Avg offices: {avg_center_offices:.1f}")
+print(f"    Avg shops: {avg_center_shops:.1f}")
+
+# Find corridor blocks (not in top centers, but on corridors)
+non_center_blocks = [b for b in city_corridor.grid.blocks
+                     if b not in center_blocks
+                     and city_corridor.transport_network.is_on_corridor(b.y, b.x)
+                     and b.shops > 0]
+
+if non_center_blocks:
+    avg_corridor_offices = np.mean([b.offices for b in non_center_blocks])
+    avg_corridor_shops = np.mean([b.shops for b in non_center_blocks])
+    print(f"\n  Corridor blocks (not centers):")
+    print(f"    Avg offices: {avg_corridor_offices:.1f}")
+    print(f"    Avg shops: {avg_corridor_shops:.1f}")
+    print(f"  Shops benefit {avg_corridor_shops/avg_corridor_offices:.2f}x more from corridors than offices")
+
+# Visualize the city
+city_corridor.visualize()
+```
+
+### Example 15: Configurable Commercial Density
+
+Explore different commercial development patterns:
+
+```{python}
+print("\n" + "=" * 70)
+print("EXAMPLE 15: High Commercial Density Downtown Core")
+print("=" * 70)
+
+# Create a city with very concentrated downtown commercial
+downtown_config = CityConfig(
+    width=40,
+    height=40,
+    block_area_acres=2.47,
+    max_density_units_per_acre=100.0,
+    persons_per_unit=2.0,
+    # Very high commercial density
+    max_office_density_per_acre=80.0,     # CBD-level offices
+    max_shop_density_per_acre=50.0,       # High retail
+    office_center_concentration=0.25,      # Very concentrated
+    shop_center_concentration=0.15,        # Moderately concentrated
+    shop_corridor_multiplier=1.4,
+    random_seed=42
+)
+
+# Single strong center (CBD)
+downtown_polycentric = PolycentricConfig(
+    num_centers=1,  # Single downtown
+    center_distribution="uniform",
+    primary_density=60.0,
+    density_decay_rate=0.18
+)
+
+# Radial transit from downtown
+downtown_transit = TransportationConfig(
+    corridor_type=CorridorType.RADIAL,
+    corridor_width_blocks=2,
+    density_multiplier=1.20,
+    radial_corridors_count=8,
+    include_ring_roads=True,
+    ring_road_radius_blocks=10
+)
+
+downtown_zoning = ZoningConfig(
+    enabled=True,
+    center_radius_blocks=6,  # Large CBD core
+    low_density_threshold=40,
+    medium_density_threshold=80
+)
+
+city_downtown = City(
+    config=downtown_config,
+    polycentric_config=downtown_polycentric,
+    transport_configs=[downtown_transit],
+    zoning_config=downtown_zoning
+)
+city_downtown.generate()
+city_downtown.summary()
+
+# Find the CBD core
+center_pos = city_downtown.centers[0]['position']
+center_y, center_x = center_pos
+
+print(f"\nCBD Core (within 3 blocks of center at {center_pos}):")
+cbd_blocks = [b for b in city_downtown.grid.blocks
+              if np.sqrt((b.x - center_x)**2 + (b.y - center_y)**2) <= 3]
+
+total_cbd_offices = sum(b.offices for b in cbd_blocks)
+total_cbd_shops = sum(b.shops for b in cbd_blocks)
+total_cbd_units = sum(b.units for b in cbd_blocks)
+
+print(f"  Total offices: {total_cbd_offices:,}")
+print(f"  Total shops: {total_cbd_shops:,}")
+print(f"  Total housing: {total_cbd_units:,}")
+print(f"  Office density: {total_cbd_offices/len(cbd_blocks):.1f} per block")
+print(f"  Shop density: {total_cbd_shops/len(cbd_blocks):.1f} per block")
+
+city_downtown.visualize()
+```
+
+### Example 16: Multi-Center Commercial Hierarchy
+
+Create a realistic multi-center city with commercial hierarchy:
+
+```{python}
+print("\n" + "=" * 70)
+print("EXAMPLE 16: Multi-Center City with Commercial Hierarchy")
+print("=" * 70)
+
+# Large city with multiple commercial nodes
+metro_config = CityConfig(
+    width=80,
+    height=80,
+    block_area_acres=2.47,
+    max_density_units_per_acre=90.0,
+    persons_per_unit=2.3,
+    max_office_density_per_acre=50.0,
+    max_shop_density_per_acre=30.0,
+    office_center_concentration=0.18,
+    shop_center_concentration=0.10,
+    shop_corridor_multiplier=1.35,
+    units_noise=0.10,
+    random_seed=42
+)
+
+# Multiple commercial centers
+metro_polycentric = PolycentricConfig(
+    num_centers=6,
+    center_distribution="uniform",
+    primary_density=45.0,
+    density_decay_rate=0.14,
+    center_strength_decay=0.65
+)
+
+# Inter-center highways
+highways = TransportationConfig(
+    corridor_type=CorridorType.INTER_CENTER,
+    corridor_width_blocks=3,
+    density_multiplier=1.15,
+    connect_all_centers=True
+)
+
+# Local grid
+local_streets = TransportationConfig(
+    corridor_type=CorridorType.GRID,
+    corridor_width_blocks=1,
+    density_multiplier=1.08,
+    grid_spacing_blocks=10
+)
+
+metro_zoning = ZoningConfig(
+    enabled=True,
+    center_radius_blocks=4,
+    low_density_threshold=35,
+    medium_density_threshold=70
+)
+
+city_metro = City(
+    config=metro_config,
+    polycentric_config=metro_polycentric,
+    transport_configs=[highways, local_streets],
+    zoning_config=metro_zoning
+)
+city_metro.generate()
+city_metro.summary()
+
+# Analyze each commercial center
+print("\nCommercial center analysis:")
+for i, center in enumerate(city_metro.centers):
+    center_y, center_x = center['position']
+
+    # Get blocks within radius
+    nearby = [b for b in city_metro.grid.blocks
+              if np.sqrt((b.x - center_x)**2 + (b.y - center_y)**2) <= 5]
+
+    if nearby:
+        total_offices = sum(b.offices for b in nearby)
+        total_shops = sum(b.shops for b in nearby)
+        avg_offices = total_offices / len(nearby)
+        avg_shops = total_shops / len(nearby)
+
+        print(f"\n  Center {i+1} at {center['position']} (strength {center['strength']:.2f}):")
+        print(f"    Total offices: {total_offices:,}")
+        print(f"    Total shops: {total_shops:,}")
+        print(f"    Avg offices/block: {avg_offices:.1f}")
+        print(f"    Avg shops/block: {avg_shops:.1f}")
+
+city_metro.visualize()
+```
+
+### Example 17: Complete City with All Features Including Commercial
+
+Final comprehensive example with everything:
+
+```{python}
+print("\n" + "=" * 70)
+print("EXAMPLE 17: Complete Realistic City with Commercial Development")
+print("=" * 70)
+
+complete_commercial_config = CityConfig(
+    width=100,
+    height=100,
+    block_area_acres=2.47,
+    max_density_units_per_acre=120.0,
+    min_density_units_per_acre=2.0,
+    persons_per_unit=lambda u, n: 2.9 if u < 30 else 2.1,
+    units_noise=0.12,
+    # Commercial parameters
+    max_office_density_per_acre=250.0,
+    max_shop_density_per_acre=35.0,
+    office_center_concentration=0.16,
+    shop_center_concentration=0.09,
+    shop_corridor_multiplier=1.4,
+    random_seed=42
+)
+
+complete_polycentric = PolycentricConfig(
+    num_centers=7,
+    center_distribution="clustered",
+    primary_density=55.0,
+    density_decay_rate=0.12,
+    center_strength_decay=0.7
+)
+
+major_roads = TransportationConfig(
+    corridor_type=CorridorType.INTER_CENTER,
+    corridor_width_blocks=3,
+    density_multiplier=1.18,
+    connect_all_centers=True
+)
+
+arterials = TransportationConfig(
+    corridor_type=CorridorType.GRID,
+    corridor_width_blocks=1,
+    density_multiplier=1.10,
+    grid_spacing_blocks=12
+)
+
+complete_parks = ParkConfig(
+    num_parks=15,
+    min_size_blocks=4,
+    max_size_blocks=16,
+    placement_strategy="dispersed",
+    shape="square"
+)
+
+complete_zoning = ZoningConfig(
+    enabled=True,
+    center_radius_blocks=5,
+    low_density_threshold=30,
+    medium_density_threshold=65
+)
+
+complete_city_final = City(
+    config=complete_commercial_config,
+    polycentric_config=complete_polycentric,
+    transport_configs=[major_roads, arterials],
+    park_config=complete_parks,
+    zoning_config=complete_zoning
+)
+complete_city_final.generate()
+complete_city_final.summary()
+
+# Comprehensive analysis
+print("\nComprehensive City Analysis:")
+print(f"  Population: {complete_city_final.total_population:,.0f}")
+print(f"  Housing units: {complete_city_final.total_units:,}")
+print(f"  Office units: {sum(b.offices for b in complete_city_final.grid.blocks):,}")
+print(f"  Retail units: {sum(b.shops for b in complete_city_final.grid.blocks):,}")
+print(f"  Jobs (assuming 1 office = 1 job): {sum(b.offices for b in complete_city_final.grid.blocks):,}")
+
+# Calculate jobs-housing balance
+total_jobs = sum(b.offices + b.shops for b in complete_city_final.grid.blocks)
+jobs_housing_ratio = total_jobs / complete_city_final.total_population if complete_city_final.total_population > 0 else 0
+print(f"  Jobs per resident: {jobs_housing_ratio:.3f}")
+
+# Visualize
+complete_city_final.visualize()
+complete_city_final.visualize_zoning()
+```
+

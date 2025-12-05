@@ -56,6 +56,14 @@ class CityConfig:
             - Callable[[int], float]: Function that takes base_units and returns noise value to add
         random_seed: Random seed for reproducibility. Set to an integer for consistent
             results across runs (default: None)
+        max_office_density_per_acre: Maximum office units per acre (default: 30.0)
+        max_shop_density_per_acre: Maximum shop/retail units per acre (default: 20.0)
+        office_center_concentration: Exponential decay rate for offices from centers.
+            Higher values = more concentrated at center (default: 0.15)
+        shop_center_concentration: Exponential decay rate for shops from centers.
+            Higher values = more concentrated at center (default: 0.10)
+        shop_corridor_multiplier: Density boost for shops along transportation corridors.
+            1.0 = no boost, 1.5 = 50% increase (default: 1.3)
     """
     # Grid dimensions
     width: int = 50
@@ -75,6 +83,13 @@ class CityConfig:
 
     # Random seed for reproducibility
     random_seed: Optional[int] = None
+
+    # Commercial density parameters
+    max_office_density_per_acre: float = 30.0
+    max_shop_density_per_acre: float = 20.0
+    office_center_concentration: float = 0.15
+    shop_center_concentration: float = 0.10
+    shop_corridor_multiplier: float = 1.3
 
 
 class City:
@@ -211,6 +226,10 @@ class City:
         # Generate zoning (after parks, using centers and density info)
         if self.zoning_config.enabled:
             generate_zoning(self.grid, self.centers, self.zoning_config)
+
+        # Generate offices and shops (after zoning)
+        self._generate_offices()
+        self._generate_shops()
 
         self._generated = True
         return self.grid
@@ -426,6 +445,76 @@ class City:
 
         return blocks
 
+    def _generate_offices(self):
+        """Generate office units concentrated at city centers"""
+        from .zoning import Use
+
+        if not self.centers:
+            return
+
+        max_offices_per_block = int(self.config.max_office_density_per_acre *
+                                     self.config.block_area_acres)
+
+        for block in self.grid.blocks:
+            # Skip parks
+            if block.is_park:
+                continue
+
+            # Check if office use is allowed by zoning
+            if block.zoning and not block.zoning.allows_use(Use.OFFICE):
+                continue
+
+            # Calculate office density based on distance to nearest center
+            min_distance = float('inf')
+            for center in self.centers:
+                center_y, center_x = center['position']
+                distance = np.sqrt((block.x - center_x)**2 + (block.y - center_y)**2)
+                min_distance = min(min_distance, distance)
+
+            # Exponential decay from center
+            office_density_factor = np.exp(-self.config.office_center_concentration * min_distance)
+
+            # Calculate offices
+            offices = int(max_offices_per_block * office_density_factor)
+            block.offices = max(0, offices)
+
+    def _generate_shops(self):
+        """Generate shop/retail units concentrated at centers and along corridors"""
+        from .zoning import Use
+
+        if not self.centers:
+            return
+
+        max_shops_per_block = int(self.config.max_shop_density_per_acre *
+                                   self.config.block_area_acres)
+
+        for block in self.grid.blocks:
+            # Skip parks
+            if block.is_park:
+                continue
+
+            # Check if commercial use is allowed by zoning
+            if block.zoning and not block.zoning.allows_use(Use.COMMERCIAL):
+                continue
+
+            # Calculate shop density based on distance to nearest center
+            min_distance = float('inf')
+            for center in self.centers:
+                center_y, center_x = center['position']
+                distance = np.sqrt((block.x - center_x)**2 + (block.y - center_y)**2)
+                min_distance = min(min_distance, distance)
+
+            # Exponential decay from center
+            shop_density_factor = np.exp(-self.config.shop_center_concentration * min_distance)
+
+            # Apply corridor multiplier if on a corridor
+            if self.transport_network and self.transport_network.is_on_corridor(block.y, block.x):
+                shop_density_factor *= self.config.shop_corridor_multiplier
+
+            # Calculate shops
+            shops = int(max_shops_per_block * shop_density_factor)
+            block.shops = max(0, shops)
+
     def visualize(self, save_path: Optional[str] = None, show: bool = True):
         """
         Visualize the city.
@@ -501,6 +590,8 @@ class City:
         total_units = sum(block.units for block in self.grid.blocks)
         total_population = self.grid.total_population
         all_units = [block.units for block in self.grid.blocks]
+        total_offices = sum(block.offices for block in self.grid.blocks)
+        total_shops = sum(block.shops for block in self.grid.blocks)
 
         print(f"\nDensity Statistics:")
         print(f"  Total housing units: {total_units:,}")
@@ -508,6 +599,14 @@ class City:
         print(f"  Average density: {np.mean(all_units):.2f} units/block")
         print(f"  Max density: {max(all_units)} units/block")
         print(f"  Min density: {min(all_units)} units/block")
+
+        print(f"\nCommercial Statistics:")
+        print(f"  Total offices: {total_offices:,}")
+        print(f"  Total shops: {total_shops:,}")
+        blocks_with_offices = sum(1 for block in self.grid.blocks if block.offices > 0)
+        blocks_with_shops = sum(1 for block in self.grid.blocks if block.shops > 0)
+        print(f"  Blocks with offices: {blocks_with_offices} ({blocks_with_offices/(self.config.width*self.config.height)*100:.1f}%)")
+        print(f"  Blocks with shops: {blocks_with_shops} ({blocks_with_shops/(self.config.width*self.config.height)*100:.1f}%)")
 
         if self.transport_network:
             corridor_info = self.transport_network.get_corridor_info()

@@ -26,6 +26,8 @@ class TransportationConfig:
         include_ring_roads: Add ring road around primary center (default: False)
         ring_road_radius_blocks: Radius of ring road from primary center (default: 10)
         radial_corridors_count: Number of radial corridors for RADIAL type (default: 4)
+        grid_spacing_blocks: Spacing between grid corridors for GRID type. None uses automatic
+            spacing of max(5, grid_dimension // 6) (default: None)
     """
     corridor_type: CorridorType = CorridorType.INTER_CENTER
     corridor_width_blocks: int = 2
@@ -35,6 +37,7 @@ class TransportationConfig:
     include_ring_roads: bool = False
     ring_road_radius_blocks: int = 10
     radial_corridors_count: int = 4
+    grid_spacing_blocks: int = None
 
 class TransportationNetwork:
     """
@@ -158,14 +161,20 @@ class TransportationNetwork:
     def _generate_grid_corridors(self):
         """Generate orthogonal grid corridors"""
         # Vertical corridors
-        spacing = max(5, self.cols // 6)
-        for col in range(0, self.cols, spacing):
+        if self.current_config.grid_spacing_blocks is not None:
+            vertical_spacing = self.current_config.grid_spacing_blocks
+        else:
+            vertical_spacing = max(5, self.cols // 6)
+        for col in range(0, self.cols, vertical_spacing):
             for row in range(self.rows):
                 self._add_corridor_block_with_width(row, col)
 
         # Horizontal corridors
-        spacing = max(5, self.rows // 6)
-        for row in range(0, self.rows, spacing):
+        if self.current_config.grid_spacing_blocks is not None:
+            horizontal_spacing = self.current_config.grid_spacing_blocks
+        else:
+            horizontal_spacing = max(5, self.rows // 6)
+        for row in range(0, self.rows, horizontal_spacing):
             for col in range(self.cols):
                 self._add_corridor_block_with_width(row, col)
 

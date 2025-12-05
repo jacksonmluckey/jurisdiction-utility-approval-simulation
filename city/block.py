@@ -15,6 +15,8 @@ class Block:
         units: Number of housing units in this block
         is_park: Whether this block is part of a park
         zoning: Zoning information for this block (optional)
+        offices: Number of office units in this block
+        shops: Number of retail/shop units in this block
     """
     block_id: int
     x: int
@@ -23,3 +25,5 @@ class Block:
     units: int
     is_park: bool = False
     zoning: Optional['Zoning'] = None
+    offices: int = 0
+    shops: int = 0
