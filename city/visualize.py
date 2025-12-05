@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Optional
+from typing import Optional, List
 from .grid import Grid
 
 
@@ -205,3 +205,102 @@ def print_grid_summary(grid: Grid):
         print(f"\nAverage Density: {avg_density:.2f} persons/unit")
 
     print(f"{'='*60}\n")
+
+
+def visualize_with_corridors(grid: Grid, centers: List[dict], transport_network,
+                             save_path: Optional[str] = None, show: bool = True):
+    """
+    Create a 3-panel visualization showing population, corridors, and combined view.
+
+    Args:
+        grid: Grid object to visualize
+        centers: List of center dictionaries with 'position' and 'strength' keys
+        transport_network: TransportationNetwork object
+        save_path: Optional path to save the figure
+        show: Whether to display the plot (default: True)
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+
+    # Create 2D arrays
+    population_grid = np.zeros((grid.height, grid.width))
+    corridor_grid = np.zeros((grid.height, grid.width))
+
+    for block in grid.blocks:
+        population_grid[block.y, block.x] = block.population
+        if transport_network and transport_network.is_on_corridor(block.y, block.x):
+            corridor_grid[block.y, block.x] = 1
+
+    # --- Panel 1: Population Distribution ---
+    ax_pop = axes[0]
+    im_pop = ax_pop.imshow(population_grid, cmap='YlOrRd', origin='lower',
+                           interpolation='nearest')
+    cbar_pop = plt.colorbar(im_pop, ax=ax_pop, fraction=0.046, pad=0.04)
+    cbar_pop.set_label('Population', rotation=270, labelpad=20, fontsize=11)
+    ax_pop.set_title('Population Distribution', fontsize=13, fontweight='bold', pad=15)
+    ax_pop.set_xlabel('X Coordinate', fontsize=10)
+    ax_pop.set_ylabel('Y Coordinate', fontsize=10)
+
+    # Mark centers
+    for i, center in enumerate(centers):
+        row, col = center['position']
+        ax_pop.scatter(col, row, s=200 * center['strength'], c='blue',
+                      marker='*', edgecolors='white', linewidths=2,
+                      label=f"Center {i+1}" if i < 3 else "")
+
+    ax_pop.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_pop.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # --- Panel 2: Transportation Corridors ---
+    ax_corr = axes[1]
+    ax_corr.imshow(corridor_grid, cmap='Greys', origin='lower',
+                   interpolation='nearest', vmin=0, vmax=1)
+    ax_corr.set_title('Transportation Corridors', fontsize=13, fontweight='bold', pad=15)
+    ax_corr.set_xlabel('X Coordinate', fontsize=10)
+    ax_corr.set_ylabel('Y Coordinate', fontsize=10)
+
+    # Mark centers
+    for i, center in enumerate(centers):
+        row, col = center['position']
+        ax_corr.scatter(col, row, s=200 * center['strength'], c='red',
+                       marker='*', edgecolors='white', linewidths=2)
+
+    ax_corr.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_corr.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # --- Panel 3: Combined View ---
+    ax_comb = axes[2]
+    im_comb = ax_comb.imshow(population_grid, cmap='YlOrRd', origin='lower',
+                             interpolation='nearest', alpha=0.7)
+    ax_comb.imshow(corridor_grid, cmap='Blues', origin='lower',
+                   interpolation='nearest', alpha=0.4)
+    cbar_comb = plt.colorbar(im_comb, ax=ax_comb, fraction=0.046, pad=0.04)
+    cbar_comb.set_label('Population', rotation=270, labelpad=20, fontsize=11)
+    ax_comb.set_title('Combined View', fontsize=13, fontweight='bold', pad=15)
+    ax_comb.set_xlabel('X Coordinate', fontsize=10)
+    ax_comb.set_ylabel('Y Coordinate', fontsize=10)
+
+    # Mark centers
+    for i, center in enumerate(centers):
+        row, col = center['position']
+        ax_comb.scatter(col, row, s=200 * center['strength'], c='blue',
+                       marker='*', edgecolors='white', linewidths=2)
+
+    ax_comb.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_comb.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # Overall title
+    corridor_info = transport_network.get_corridor_info() if transport_network else {}
+    corridor_type = corridor_info.get('corridor_type', 'N/A')
+    fig.suptitle(f'City with Transportation Corridors ({corridor_type})',
+                 fontsize=16, fontweight='bold', y=0.98)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to: {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close()

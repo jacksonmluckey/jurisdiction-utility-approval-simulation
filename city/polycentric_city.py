@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional
 from .block import Block
 from .grid import Grid
+from .transportation_corridor import TransportationNetwork, TransportationConfig
 
 @dataclass
 class PolycentricConfig:
@@ -19,17 +20,27 @@ class PolycentricConfig:
 class PolycentricCity:
     """Generates polycentric urban density patterns on a grid"""
 
-    def __init__(self, grid_rows: int, grid_cols: int, config: PolycentricConfig = None):
+    def __init__(self, grid_rows: int, grid_cols: int,
+                 config: PolycentricConfig = None,
+                 transport_config: Optional[TransportationConfig] = None):
         self.rows = grid_rows
         self.cols = grid_cols
         self.config = config or PolycentricConfig()
+        self.transport_config = transport_config
         self.centers = []
         self.grid = Grid(width=grid_cols, height=grid_rows)
+        self.transport_network = None
 
     def generate(self) -> Grid:
         """Generate housing units and population distributions"""
         self._place_centers()
         self._calculate_densities()
+
+        # Generate transportation corridors if configured
+        if self.transport_config:
+            self._generate_transportation_corridors()
+            self._apply_corridor_effects()
+
         return self.grid
 
     def _place_centers(self):
@@ -165,6 +176,26 @@ class PolycentricCity:
         """Calculate Euclidean distance between two positions"""
         return np.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
+    def _generate_transportation_corridors(self):
+        """Generate transportation network based on centers"""
+        self.transport_network = TransportationNetwork(
+            self.rows,
+            self.cols,
+            self.centers,
+            self.transport_config
+        )
+        self.transport_network.generate_corridors()
+
+    def _apply_corridor_effects(self):
+        """Apply density multiplier to blocks on transportation corridors"""
+        if not self.transport_network:
+            return
+
+        for block in self.grid.blocks:
+            if self.transport_network.is_on_corridor(block.y, block.x):
+                block.units = int(block.units * self.transport_config.density_multiplier)
+                block.population = block.population * self.transport_config.density_multiplier
+
     def get_center_info(self) -> List[dict]:
         """Get information about placed centers"""
         return self.centers
@@ -188,3 +219,11 @@ class PolycentricCity:
         print(f"Average density: {np.mean(all_units):.2f} units/block")
         print(f"Max density: {max(all_units):.2f} units/block")
         print(f"Min density: {min(all_units):.2f} units/block")
+
+        if self.transport_network:
+            corridor_info = self.transport_network.get_corridor_info()
+            print(f"\nTransportation Network:")
+            print(f"  Corridor type: {corridor_info['corridor_type']}")
+            print(f"  Total corridor blocks: {corridor_info['total_corridor_blocks']}")
+            print(f"  Corridor coverage: {corridor_info['corridor_coverage_pct']:.1f}%")
+            print(f"  Density boost: {corridor_info['average_density_boost']:.1f}%")

@@ -13,7 +13,9 @@ import sys
 sys.path.append('..')
 
 from city import PolycentricCity, PolycentricConfig
+from city import TransportationConfig, CorridorType
 from city import visualize_grid, visualize_population, visualize_units, print_grid_summary
+from city import visualize_with_corridors
 ```
 
 ## Generate a Polycentric City
@@ -111,4 +113,115 @@ city_random = PolycentricCity(grid_rows=30, grid_cols=30, config=config_random)
 grid_random = city_random.generate()
 
 visualize_grid(grid_random, show=True)
+```
+
+## Cities with Transportation Corridors
+
+Transportation corridors can significantly affect density patterns by providing higher accessibility along major routes.
+
+### Inter-Center Corridors
+
+Connect all activity centers with transportation corridors:
+
+```{python}
+#| fig-width: 15
+#| fig-height: 5
+
+# Configure city with transportation
+config_transport = PolycentricConfig(
+    num_centers=4,
+    center_distribution="uniform",
+    primary_density=18.0,
+    density_decay_rate=0.15
+)
+
+transport_config = TransportationConfig(
+    corridor_type=CorridorType.INTER_CENTER,
+    corridor_width_blocks=2,
+    density_multiplier=1.20,  # 20% density boost along corridors
+    connect_all_centers=True
+)
+
+# Generate city with corridors
+city_transport = PolycentricCity(
+    grid_rows=60,
+    grid_cols=60,
+    config=config_transport,
+    transport_config=transport_config
+)
+grid_transport = city_transport.generate()
+
+# Show summary
+city_transport.visualize_summary()
+
+# Visualize with corridors highlighted
+visualize_with_corridors(
+    grid_transport,
+    city_transport.get_center_info(),
+    city_transport.transport_network,
+    show=True
+)
+```
+
+### Radial Corridors (Hub-and-Spoke)
+
+Create a hub-and-spoke pattern from the primary center:
+
+```{python}
+#| fig-width: 15
+#| fig-height: 5
+
+transport_config_radial = TransportationConfig(
+    corridor_type=CorridorType.RADIAL,
+    corridor_width_blocks=2,
+    density_multiplier=1.15,
+    radial_corridors_count=6,
+    include_ring_roads=True,
+    ring_road_radius_blocks=15
+)
+
+city_radial = PolycentricCity(
+    grid_rows=60,
+    grid_cols=60,
+    config=config_transport,
+    transport_config=transport_config_radial
+)
+grid_radial = city_radial.generate()
+
+visualize_with_corridors(
+    grid_radial,
+    city_radial.get_center_info(),
+    city_radial.transport_network,
+    show=True
+)
+```
+
+### Grid Pattern (Manhattan-style)
+
+Orthogonal grid of major transportation routes:
+
+```{python}
+#| fig-width: 15
+#| fig-height: 5
+
+transport_config_grid = TransportationConfig(
+    corridor_type=CorridorType.GRID,
+    corridor_width_blocks=1,
+    density_multiplier=1.10
+)
+
+city_grid = PolycentricCity(
+    grid_rows=60,
+    grid_cols=60,
+    config=config_transport,
+    transport_config=transport_config_grid
+)
+grid_grid_pattern = city_grid.generate()
+
+visualize_with_corridors(
+    grid_grid_pattern,
+    city_grid.get_center_info(),
+    city_grid.transport_network,
+    show=True
+)
 ```
