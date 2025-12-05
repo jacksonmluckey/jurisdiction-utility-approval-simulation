@@ -99,6 +99,128 @@ def test_city_centers_placement():
     assert len(city.get_center_info()) == 3
 
 
+def test_units_noise_float_scaling():
+    """Test units_noise as float scales proportionally with base units."""
+    config = CityConfig(
+        width=10,
+        height=10,
+        units_noise=0.2,  # 20% proportional noise
+        random_seed=42
+    )
+    polycentric = PolycentricConfig(num_centers=1, primary_density=20.0)
+
+    city = City(config=config, polycentric_config=polycentric)
+    city.generate()
+
+    # With noise, units should vary from deterministic baseline
+    # Generate without noise for comparison
+    config_no_noise = CityConfig(
+        width=10,
+        height=10,
+        units_noise=None,
+        random_seed=42
+    )
+    city_no_noise = City(config=config_no_noise, polycentric_config=polycentric)
+    city_no_noise.generate()
+
+    # At least some blocks should differ (noise should have effect)
+    units_with_noise = [b.units for b in city.grid.blocks]
+    units_without_noise = [b.units for b in city_no_noise.grid.blocks]
+    differences = sum(1 for a, b in zip(units_with_noise, units_without_noise) if a != b)
+
+    assert differences > 0, "Noise should affect at least some blocks"
+
+
+def test_units_noise_callable():
+    """Test units_noise as callable function is applied correctly."""
+    def custom_noise(base_units):
+        # Simple: add 5 units of noise for testing
+        import numpy as np
+        return np.random.normal(0, 5)
+
+    config = CityConfig(
+        width=10,
+        height=10,
+        units_noise=custom_noise,
+        random_seed=42
+    )
+    polycentric = PolycentricConfig(num_centers=1, primary_density=20.0)
+
+    city = City(config=config, polycentric_config=polycentric)
+    city.generate()
+
+    # Check that generation succeeds and produces valid results
+    assert city.total_units > 0
+    assert all(b.units >= 0 for b in city.grid.blocks)
+
+
+def test_persons_per_unit_callable():
+    """Test persons_per_unit as callable varies by density."""
+    def density_based_household(units, noise):
+        if units < 30:
+            return 3.0
+        else:
+            return 2.0
+
+    config = CityConfig(
+        width=10,
+        height=10,
+        persons_per_unit=density_based_household,
+        random_seed=42
+    )
+    polycentric = PolycentricConfig(num_centers=1, primary_density=25.0)
+
+    city = City(config=config, polycentric_config=polycentric)
+    city.generate()
+
+    # Check that household sizes vary as expected
+    low_density_blocks = [b for b in city.grid.blocks if b.units < 30 and b.units > 0]
+    high_density_blocks = [b for b in city.grid.blocks if b.units >= 30]
+
+    if low_density_blocks and high_density_blocks:
+        # Low density should have ~3.0 persons/unit
+        avg_low = sum(b.population / b.units for b in low_density_blocks) / len(low_density_blocks)
+        assert 2.9 < avg_low < 3.1, f"Expected ~3.0, got {avg_low}"
+
+        # High density should have ~2.0 persons/unit
+        avg_high = sum(b.population / b.units for b in high_density_blocks) / len(high_density_blocks)
+        assert 1.9 < avg_high < 2.1, f"Expected ~2.0, got {avg_high}"
+
+
+def test_combined_noise_and_callable_persons():
+    """Test units_noise and callable persons_per_unit work together."""
+    def adaptive_household(units, noise):
+        base = 2.5
+        if units > 50:
+            base = 2.0
+        if noise is not None and abs(noise) > 10:
+            base += 0.2
+        return base
+
+    config = CityConfig(
+        width=15,
+        height=15,
+        units_noise=0.15,
+        persons_per_unit=adaptive_household,
+        random_seed=42
+    )
+    polycentric = PolycentricConfig(num_centers=2, primary_density=30.0)
+
+    city = City(config=config, polycentric_config=polycentric)
+    city.generate()
+
+    # Verify generation succeeds and produces sensible results
+    assert city.total_units > 0
+    assert city.total_population > 0
+    assert all(b.population > 0 for b in city.grid.blocks if b.units > 0)
+
+    # Check that persons_per_unit is in reasonable range
+    for block in city.grid.blocks:
+        if block.units > 0:
+            ppu = block.population / block.units
+            assert 1.5 < ppu < 3.5, f"persons_per_unit {ppu} out of expected range"
+
+
 if __name__ == '__main__':
     tests = [
         test_grid_get_block,
@@ -106,7 +228,11 @@ if __name__ == '__main__':
         test_city_requires_generate_before_viz,
         test_city_applies_density_constraints,
         test_city_properties,
-        test_city_centers_placement
+        test_city_centers_placement,
+        test_units_noise_float_scaling,
+        test_units_noise_callable,
+        test_persons_per_unit_callable,
+        test_combined_noise_and_callable_persons
     ]
 
     for test in tests:

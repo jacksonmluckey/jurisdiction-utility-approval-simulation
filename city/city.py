@@ -3,7 +3,7 @@ City class - unified interface for creating and managing simulated cities
 """
 import numpy as np
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Union, Callable
 from .grid import Grid
 from .polycentric_city import PolycentricConfig
 from .transportation_corridor import TransportationConfig, TransportationNetwork
@@ -22,7 +22,14 @@ class CityConfig:
         max_density_units_per_acre: Maximum housing units per acre (default: 50.0).
             Typical ranges: 5-20 suburban, 20-60 urban, 60-150+ high-density urban.
         min_density_units_per_acre: Minimum housing units per acre (default: 0.5)
-        persons_per_unit: Average household size (default: 2.5)
+        persons_per_unit: Average household size or a function that takes (units, noise) and returns
+            household size. Can be a float for constant value, or a callable for variable values
+            based on block characteristics (default: 2.5)
+        units_noise: Noise to add to units per block. Can be:
+            - None: No noise (default)
+            - float: Scaling factor for std dev (std_dev = units_noise * base_units).
+              For example, 0.1 means 10% of base units as std dev
+            - Callable[[int], float]: Function that takes base_units and returns noise value to add
         random_seed: Random seed for reproducibility. Set to an integer for consistent
             results across runs (default: None)
     """
@@ -39,7 +46,8 @@ class CityConfig:
     min_density_units_per_acre: float = 0.5
 
     # Population parameters
-    persons_per_unit: float = 2.5
+    persons_per_unit: Union[float, Callable[[int, Optional[float]], float]] = 2.5
+    units_noise: Optional[Union[float, Callable[[int], float]]] = None
 
     # Random seed for reproducibility
     random_seed: Optional[int] = None
@@ -215,10 +223,26 @@ class City:
                     block_density += contribution
 
                 # Convert density to housing units
-                units = int(block_density * self.config.block_area_acres)
+                base_units = int(block_density * self.config.block_area_acres)
 
-                # Calculate population
-                population = units * self.config.persons_per_unit
+                # Apply noise to units if configured
+                noise_value = None
+                units = base_units
+                if self.config.units_noise is not None:
+                    if callable(self.config.units_noise):
+                        # Function that takes base_units and returns noise value
+                        noise_value = self.config.units_noise(base_units)
+                    else:
+                        # Float scaling factor: std_dev = units_noise * base_units
+                        std_dev = self.config.units_noise * base_units
+                        noise_value = np.random.normal(0, std_dev)
+                    units = max(0, int(base_units + noise_value))
+
+                # Calculate population based on whether persons_per_unit is callable
+                if callable(self.config.persons_per_unit):
+                    population = units * self.config.persons_per_unit(units, noise_value)
+                else:
+                    population = units * self.config.persons_per_unit
 
                 # Update the block
                 block = self.grid.get_block(col, row)
@@ -231,9 +255,28 @@ class City:
         default_density = 10.0  # units per acre
 
         for block in self.grid.blocks:
-            units = int(default_density * self.config.block_area_acres)
+            base_units = int(default_density * self.config.block_area_acres)
+
+            # Apply noise to units if configured
+            noise_value = None
+            units = base_units
+            if self.config.units_noise is not None:
+                if callable(self.config.units_noise):
+                    # Function that takes base_units and returns noise value
+                    noise_value = self.config.units_noise(base_units)
+                else:
+                    # Float scaling factor: std_dev = units_noise * base_units
+                    std_dev = self.config.units_noise * base_units
+                    noise_value = np.random.normal(0, std_dev)
+                units = max(0, int(base_units + noise_value))
+
             block.units = units
-            block.population = units * self.config.persons_per_unit
+
+            # Calculate population based on whether persons_per_unit is callable
+            if callable(self.config.persons_per_unit):
+                block.population = units * self.config.persons_per_unit(units, noise_value)
+            else:
+                block.population = units * self.config.persons_per_unit
 
     def _generate_transportation_network(self):
         """Generate transportation corridors and apply density effects"""
@@ -252,7 +295,14 @@ class City:
                 corridor_info_list = self.transport_network.corridor_details[block_key]
                 max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
                 block.units = int(block.units * max_multiplier)
-                block.population = block.population * max_multiplier
+
+                # Recalculate population based on new units if persons_per_unit is callable
+                if callable(self.config.persons_per_unit):
+                    # For transportation corridors, we don't have the original noise value,
+                    # so we pass None
+                    block.population = block.units * self.config.persons_per_unit(block.units, None)
+                else:
+                    block.population = block.population * max_multiplier
 
     def _apply_density_constraints(self):
         """Apply city-wide density constraints to all blocks"""
@@ -264,15 +314,21 @@ class City:
         for block in self.grid.blocks:
             # Apply maximum density constraint
             if block.units > max_units_per_block:
-                ratio = max_units_per_block / block.units
                 block.units = max_units_per_block
-                block.population = block.population * ratio
+                # Recalculate population based on new units
+                if callable(self.config.persons_per_unit):
+                    block.population = block.units * self.config.persons_per_unit(block.units, None)
+                else:
+                    block.population = block.units * self.config.persons_per_unit
 
             # Apply minimum density constraint
             if block.units < min_units_per_block:
-                ratio = min_units_per_block / block.units if block.units > 0 else 1
                 block.units = min_units_per_block
-                block.population = block.population * ratio
+                # Recalculate population based on new units
+                if callable(self.config.persons_per_unit):
+                    block.population = block.units * self.config.persons_per_unit(block.units, None)
+                else:
+                    block.population = block.units * self.config.persons_per_unit
 
     def _calculate_distance(self, pos1: tuple, pos2: tuple) -> float:
         """Calculate Euclidean distance between two positions"""

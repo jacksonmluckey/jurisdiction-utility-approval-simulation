@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union, Callable
 from .block import Block
 from .grid import Grid
 from .transportation_corridor import TransportationNetwork, TransportationConfig
@@ -21,7 +21,14 @@ class PolycentricConfig:
         center_strength_decay: Strength multiplier for each subsequent center relative
             to previous. 0.6 means second center is 60% as strong as first (default: 0.6)
         block_area_acres: Area of each block in acres (default: 1.0)
-        persons_per_unit: Average household size (default: 2.5)
+        persons_per_unit: Average household size or a function that takes (units, noise) and returns
+            household size. Can be a float for constant value, or a callable for variable values
+            based on block characteristics (default: 2.5)
+        units_noise: Noise to add to units per block. Can be:
+            - None: No noise (default)
+            - float: Scaling factor for std dev (std_dev = units_noise * base_units).
+              For example, 0.1 means 10% of base units as std dev
+            - Callable[[int], float]: Function that takes base_units and returns noise value to add
         min_center_separation_blocks: Minimum distance between centers (default: 5)
     """
     num_centers: int = 3
@@ -30,7 +37,8 @@ class PolycentricConfig:
     density_decay_rate: float = 0.20
     center_strength_decay: float = 0.6
     block_area_acres: float = 1.0
-    persons_per_unit: float = 2.5
+    persons_per_unit: Union[float, Callable[[int, Optional[float]], float]] = 2.5
+    units_noise: Optional[Union[float, Callable[[int], float]]] = None
     min_center_separation_blocks: int = 5
 
 class PolycentricCity:
@@ -187,10 +195,26 @@ class PolycentricCity:
                     block_density += contribution
 
                 # Convert density to housing units
-                units = int(block_density * self.config.block_area_acres)
+                base_units = int(block_density * self.config.block_area_acres)
 
-                # Calculate population
-                population = units * self.config.persons_per_unit
+                # Apply noise to units if configured
+                noise_value = None
+                units = base_units
+                if self.config.units_noise is not None:
+                    if callable(self.config.units_noise):
+                        # Function that takes base_units and returns noise value
+                        noise_value = self.config.units_noise(base_units)
+                    else:
+                        # Float scaling factor: std_dev = units_noise * base_units
+                        std_dev = self.config.units_noise * base_units
+                        noise_value = np.random.normal(0, std_dev)
+                    units = max(0, int(base_units + noise_value))
+
+                # Calculate population based on whether persons_per_unit is callable
+                if callable(self.config.persons_per_unit):
+                    population = units * self.config.persons_per_unit(units, noise_value)
+                else:
+                    population = units * self.config.persons_per_unit
 
                 # Update the block in the grid
                 block = self.grid.get_block(col, row)
@@ -226,7 +250,14 @@ class PolycentricCity:
                 corridor_info_list = self.transport_network.corridor_details[block_key]
                 max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
                 block.units = int(block.units * max_multiplier)
-                block.population = block.population * max_multiplier
+
+                # Recalculate population based on new units if persons_per_unit is callable
+                if callable(self.config.persons_per_unit):
+                    # For transportation corridors, we don't have the original noise value,
+                    # so we pass None
+                    block.population = block.units * self.config.persons_per_unit(block.units, None)
+                else:
+                    block.population = block.population * max_multiplier
 
     def get_center_info(self) -> List[dict]:
         """Get information about placed centers"""
