@@ -4,7 +4,7 @@ format: html
 jupyter: python3
 ---
 
-This notebook demonstrates how to generate and visualize polycentric city density patterns.
+This notebook demonstrates how to generate and visualize polycentric city density patterns using the City class.
 
 ## Setup
 
@@ -12,8 +12,101 @@ This notebook demonstrates how to generate and visualize polycentric city densit
 import sys
 sys.path.append('..')
 
+from city import City, CityConfig
+from city import PolycentricConfig, TransportationConfig, CorridorType
+```
+
+## Using the City Class (Recommended)
+
+The `City` class provides a unified interface for creating cities with all configuration in one place.
+
+### Simple Example
+
+```{python}
+# Create a basic city with default settings
+city_config = CityConfig(
+    width=60,
+    height=60,
+    block_area_acres=2.47,  # ~100m x 100m blocks
+    max_density_units_per_acre=50.0
+)
+
+polycentric_config = PolycentricConfig(
+    num_centers=4,
+    center_distribution="uniform",
+    primary_density=25.0,
+    density_decay_rate=0.12
+)
+
+# Create and generate city
+city = City(
+    config=city_config,
+    polycentric_config=polycentric_config
+)
+grid = city.generate()
+
+# Show summary
+city.summary()
+```
+
+### Visualize the City
+
+```{python}
+#| fig-width: 12
+#| fig-height: 5
+
+city.visualize(show=True)
+```
+
+### City with Transportation Corridors
+
+```{python}
+#| fig-width: 15
+#| fig-height: 5
+
+# Create city with transportation
+city_config_transport = CityConfig(
+    width=70,
+    height=70,
+    block_area_acres=2.47,
+    max_density_units_per_acre=60.0
+)
+
+polycentric_config_transport = PolycentricConfig(
+    num_centers=5,
+    center_distribution="uniform",
+    primary_density=22.0,
+    density_decay_rate=0.10
+)
+
+transport_config = TransportationConfig(
+    corridor_type=CorridorType.INTER_CENTER,
+    corridor_width_blocks=2,
+    density_multiplier=1.25,
+    connect_all_centers=True
+)
+
+city_with_transport = City(
+    config=city_config_transport,
+    polycentric_config=polycentric_config_transport,
+    transport_config=transport_config
+)
+grid_transport = city_with_transport.generate()
+
+city_with_transport.summary()
+city_with_transport.visualize(show=True)
+```
+
+---
+
+## Alternative: Using Individual Components
+
+You can also use `PolycentricCity` directly for more granular control:
+
+### Setup (Alternative)
+
+```{python}
 from city import PolycentricCity, PolycentricConfig
-from city import TransportationConfig, CorridorType
 from city import visualize_grid, visualize_population, visualize_units, print_grid_summary
 from city import visualize_with_corridors
 ```
