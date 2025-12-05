@@ -42,31 +42,51 @@ class TransportationNetwork:
 
     Generates corridor patterns (radial, inter-center, ring, or grid) and tracks which
     blocks are affected by transportation infrastructure.
+
+    Supports multiple corridor configurations with different settings.
     """
 
-    def __init__(self, grid_rows: int, grid_cols: int, 
-                 centers: List[dict], config: TransportationConfig = None):
+    def __init__(self, grid_rows: int, grid_cols: int,
+                 centers: List[dict], configs: List[TransportationConfig] = None):
+        """
+        Initialize transportation network.
+
+        Args:
+            grid_rows: Number of rows in the grid
+            grid_cols: Number of columns in the grid
+            centers: List of activity centers
+            configs: List of TransportationConfig objects. If None, creates default config.
+        """
         self.rows = grid_rows
         self.cols = grid_cols
         self.centers = centers
-        self.config = config or TransportationConfig()
+        self.configs = configs or [TransportationConfig()]
         self.corridor_blocks = set()  # Set of (row, col) tuples on corridors
+        # Map from (row, col) to list of (config_index, density_multiplier)
+        self.corridor_details = {}  # Track which corridors affect each block
 
     def generate_corridors(self) -> Set[Tuple[int, int]]:
-        """Generate all corridor blocks based on configuration"""
+        """Generate all corridor blocks based on all configurations"""
         self.corridor_blocks.clear()
+        self.corridor_details.clear()
 
-        if self.config.corridor_type == CorridorType.RADIAL:
-            self._generate_radial_corridors()
-        elif self.config.corridor_type == CorridorType.INTER_CENTER:
-            self._generate_inter_center_corridors()
-        elif self.config.corridor_type == CorridorType.RING:
-            self._generate_ring_corridors()
-        elif self.config.corridor_type == CorridorType.GRID:
-            self._generate_grid_corridors()
+        # Generate corridors for each configuration
+        for config_idx, config in enumerate(self.configs):
+            # Store current config for use in generation methods
+            self.current_config = config
+            self.current_config_idx = config_idx
 
-        if self.config.include_ring_roads:
-            self._add_ring_road()
+            if config.corridor_type == CorridorType.RADIAL:
+                self._generate_radial_corridors()
+            elif config.corridor_type == CorridorType.INTER_CENTER:
+                self._generate_inter_center_corridors()
+            elif config.corridor_type == CorridorType.RING:
+                self._generate_ring_corridors()
+            elif config.corridor_type == CorridorType.GRID:
+                self._generate_grid_corridors()
+
+            if config.include_ring_roads:
+                self._add_ring_road()
 
         return self.corridor_blocks
 
@@ -76,7 +96,7 @@ class TransportationNetwork:
             return
 
         primary_center = self.centers[0]['position']
-        angles = np.linspace(0, 2*np.pi, self.config.radial_corridors_count, 
+        angles = np.linspace(0, 2*np.pi, self.current_config.radial_corridors_count,
                             endpoint=False)
 
         max_radius = max(self.rows, self.cols)
@@ -94,7 +114,7 @@ class TransportationNetwork:
         if len(self.centers) < 2:
             return
 
-        if self.config.connect_all_centers:
+        if self.current_config.connect_all_centers:
             # Connect all pairs of centers
             for i in range(len(self.centers)):
                 for j in range(i + 1, len(self.centers)):
@@ -128,9 +148,9 @@ class TransportationNetwork:
         primary_center = self.centers[0]['position']
 
         # Multiple rings at different radii
-        radii = [self.config.ring_road_radius_blocks * (i + 1) 
-                for i in range(min(self.rows, self.cols) // 
-                              (2 * self.config.ring_road_radius_blocks))]
+        radii = [self.current_config.ring_road_radius_blocks * (i + 1)
+                for i in range(min(self.rows, self.cols) //
+                              (2 * self.current_config.ring_road_radius_blocks))]
 
         for radius in radii:
             self._add_ring_at_radius(primary_center, radius)
@@ -154,8 +174,8 @@ class TransportationNetwork:
         if not self.centers:
             return
         primary_center = self.centers[0]['position']
-        self._add_ring_at_radius(primary_center, 
-                                 self.config.ring_road_radius_blocks)
+        self._add_ring_at_radius(primary_center,
+                                 self.current_config.ring_road_radius_blocks)
 
     def _add_ring_at_radius(self, center: Tuple[int, int], radius: int):
         """Add a circular corridor at given radius from center"""
@@ -172,13 +192,13 @@ class TransportationNetwork:
             if 0 <= row < self.rows and 0 <= col < self.cols:
                 self._add_corridor_block_with_width(row, col)
 
-    def _connect_two_centers(self, pos1: Tuple[int, int], 
+    def _connect_two_centers(self, pos1: Tuple[int, int],
                             pos2: Tuple[int, int]):
         """Create corridor between two centers using Bresenham's line algorithm"""
         distance = self._distance(pos1, pos2)
 
-        if (self.config.max_corridor_distance and 
-            distance > self.config.max_corridor_distance):
+        if (self.current_config.max_corridor_distance and
+            distance > self.current_config.max_corridor_distance):
             return
 
         # Bresenham's line algorithm
@@ -207,7 +227,7 @@ class TransportationNetwork:
 
     def _add_corridor_block_with_width(self, row: int, col: int):
         """Add a block and its neighbors based on corridor width"""
-        half_width = self.config.corridor_width_blocks // 2
+        half_width = self.current_config.corridor_width_blocks // 2
 
         for dr in range(-half_width, half_width + 1):
             for dc in range(-half_width, half_width + 1):
@@ -215,21 +235,37 @@ class TransportationNetwork:
                 new_col = col + dc
 
                 if 0 <= new_row < self.rows and 0 <= new_col < self.cols:
-                    self.corridor_blocks.add((new_row, new_col))
+                    block_key = (new_row, new_col)
+                    self.corridor_blocks.add(block_key)
+
+                    # Track which corridors affect this block
+                    if block_key not in self.corridor_details:
+                        self.corridor_details[block_key] = []
+                    self.corridor_details[block_key].append({
+                        'config_idx': self.current_config_idx,
+                        'density_multiplier': self.current_config.density_multiplier,
+                        'corridor_type': self.current_config.corridor_type.value
+                    })
 
     def _distance(self, pos1: Tuple[int, int], pos2: Tuple[int, int]) -> float:
         """Calculate Euclidean distance between two positions"""
         return np.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
-    def apply_corridor_effects(self, housing_units: np.ndarray, 
+    def apply_corridor_effects(self, housing_units: np.ndarray,
                                population: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Apply density multiplier to blocks on corridors"""
+        """Apply density multiplier to blocks on corridors.
+
+        When multiple corridors overlap, applies the maximum density multiplier.
+        """
         modified_housing = housing_units.copy()
         modified_population = population.copy()
 
-        for row, col in self.corridor_blocks:
-            modified_housing[row, col] *= self.config.density_multiplier
-            modified_population[row, col] *= self.config.density_multiplier
+        for block_key, corridor_info_list in self.corridor_details.items():
+            row, col = block_key
+            # When corridors overlap, use the maximum density multiplier
+            max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
+            modified_housing[row, col] *= max_multiplier
+            modified_population[row, col] *= max_multiplier
 
         return modified_housing, modified_population
 
@@ -239,10 +275,32 @@ class TransportationNetwork:
 
     def get_corridor_info(self) -> dict:
         """Get statistics about the corridor network"""
+        # Calculate average density boost across all corridor blocks
+        if self.corridor_details:
+            all_max_multipliers = []
+            for corridor_info_list in self.corridor_details.values():
+                max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
+                all_max_multipliers.append(max_multiplier)
+            avg_density_boost = (np.mean(all_max_multipliers) - 1) * 100
+        else:
+            avg_density_boost = 0
+
+        # Get info about each corridor configuration
+        corridor_configs_info = []
+        for i, config in enumerate(self.configs):
+            corridor_configs_info.append({
+                'index': i,
+                'type': config.corridor_type.value,
+                'width_blocks': config.corridor_width_blocks,
+                'density_multiplier': config.density_multiplier,
+                'density_boost_pct': (config.density_multiplier - 1) * 100
+            })
+
         return {
             'total_corridor_blocks': len(self.corridor_blocks),
-            'corridor_coverage_pct': (len(self.corridor_blocks) / 
+            'corridor_coverage_pct': (len(self.corridor_blocks) /
                                      (self.rows * self.cols)) * 100,
-            'corridor_type': self.config.corridor_type.value,
-            'average_density_boost': (self.config.density_multiplier - 1) * 100
+            'num_corridor_configs': len(self.configs),
+            'corridor_configs': corridor_configs_info,
+            'average_density_boost': avg_density_boost
         }

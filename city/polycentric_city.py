@@ -48,11 +48,11 @@ class PolycentricCity:
 
     def __init__(self, grid_rows: int, grid_cols: int,
                  config: PolycentricConfig = None,
-                 transport_config: Optional[TransportationConfig] = None):
+                 transport_configs: Optional[List[TransportationConfig]] = None):
         self.rows = grid_rows
         self.cols = grid_cols
         self.config = config or PolycentricConfig()
-        self.transport_config = transport_config
+        self.transport_configs = transport_configs
         self.centers = []
         self.grid = Grid(width=grid_cols, height=grid_rows)
         self.transport_network = None
@@ -63,7 +63,7 @@ class PolycentricCity:
         self._calculate_densities()
 
         # Generate transportation corridors if configured
-        if self.transport_config:
+        if self.transport_configs:
             self._generate_transportation_corridors()
             self._apply_corridor_effects()
 
@@ -208,19 +208,25 @@ class PolycentricCity:
             self.rows,
             self.cols,
             self.centers,
-            self.transport_config
+            self.transport_configs
         )
         self.transport_network.generate_corridors()
 
     def _apply_corridor_effects(self):
-        """Apply density multiplier to blocks on transportation corridors"""
+        """Apply density multiplier to blocks on transportation corridors.
+
+        When multiple corridors overlap, applies the maximum density multiplier.
+        """
         if not self.transport_network:
             return
 
         for block in self.grid.blocks:
-            if self.transport_network.is_on_corridor(block.y, block.x):
-                block.units = int(block.units * self.transport_config.density_multiplier)
-                block.population = block.population * self.transport_config.density_multiplier
+            block_key = (block.y, block.x)
+            if block_key in self.transport_network.corridor_details:
+                corridor_info_list = self.transport_network.corridor_details[block_key]
+                max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
+                block.units = int(block.units * max_multiplier)
+                block.population = block.population * max_multiplier
 
     def get_center_info(self) -> List[dict]:
         """Get information about placed centers"""
@@ -249,7 +255,14 @@ class PolycentricCity:
         if self.transport_network:
             corridor_info = self.transport_network.get_corridor_info()
             print(f"\nTransportation Network:")
-            print(f"  Corridor type: {corridor_info['corridor_type']}")
+            print(f"  Number of corridor types: {corridor_info['num_corridor_configs']}")
             print(f"  Total corridor blocks: {corridor_info['total_corridor_blocks']}")
-            print(f"  Corridor coverage: {corridor_info['corridor_coverage_pct']:.1f}%")
-            print(f"  Density boost: {corridor_info['average_density_boost']:.1f}%")
+            print(f"  Coverage: {corridor_info['corridor_coverage_pct']:.1f}%")
+            print(f"  Average density boost: {corridor_info['average_density_boost']:.1f}%")
+
+            # Show details for each corridor configuration
+            for config_info in corridor_info['corridor_configs']:
+                print(f"\n  Corridor {config_info['index'] + 1}:")
+                print(f"    Type: {config_info['type']}")
+                print(f"    Width: {config_info['width_blocks']} blocks")
+                print(f"    Density boost: {config_info['density_boost_pct']:.1f}%")

@@ -66,7 +66,7 @@ class City:
         >>> city.summary()
         >>> city.visualize()
 
-    With Transportation:
+    With Single Transportation Corridor:
         >>> from city import TransportationConfig, CorridorType
         >>>
         >>> transport = TransportationConfig(
@@ -74,7 +74,28 @@ class City:
         ...     corridor_width_blocks=2,
         ...     density_multiplier=1.20
         ... )
-        >>> city = City(config, polycentric, transport)
+        >>> city = City(config, polycentric, transport_configs=[transport])
+        >>> city.generate()
+        >>> city.visualize()
+
+    With Multiple Transportation Corridors:
+        >>> from city import TransportationConfig, CorridorType
+        >>>
+        >>> # Wide highways connecting centers
+        >>> highways = TransportationConfig(
+        ...     corridor_type=CorridorType.INTER_CENTER,
+        ...     corridor_width_blocks=3,
+        ...     density_multiplier=1.10
+        ... )
+        >>>
+        >>> # Narrow transit lines in a grid pattern
+        >>> transit = TransportationConfig(
+        ...     corridor_type=CorridorType.GRID,
+        ...     corridor_width_blocks=1,
+        ...     density_multiplier=1.25
+        ... )
+        >>>
+        >>> city = City(config, polycentric, transport_configs=[highways, transit])
         >>> city.generate()
         >>> city.visualize()
 
@@ -97,18 +118,18 @@ class City:
     def __init__(self,
                  config: Optional[CityConfig] = None,
                  polycentric_config: Optional[PolycentricConfig] = None,
-                 transport_config: Optional[TransportationConfig] = None):
+                 transport_configs: Optional[List[TransportationConfig]] = None):
         """
         Initialize a city with configuration parameters.
 
         Args:
             config: City-wide configuration (dimensions, block size, max density, etc.)
             polycentric_config: Configuration for polycentric density patterns
-            transport_config: Configuration for transportation corridors
+            transport_configs: List of transportation corridor configurations. Can be a list of one or more configs.
         """
         self.config = config or CityConfig()
         self.polycentric_config = polycentric_config
-        self.transport_config = transport_config
+        self.transport_configs = transport_configs
 
         # Set random seed if specified
         if self.config.random_seed is not None:
@@ -138,7 +159,7 @@ class City:
             self._generate_uniform_density()
 
         # Add transportation corridors
-        if self.transport_config and self.centers:
+        if self.transport_configs and self.centers:
             self._generate_transportation_network()
 
         # Apply city-wide constraints
@@ -220,15 +241,18 @@ class City:
             grid_rows=self.config.height,
             grid_cols=self.config.width,
             centers=self.centers,
-            config=self.transport_config
+            configs=self.transport_configs
         )
         self.transport_network.generate_corridors()
 
-        # Apply corridor effects
+        # Apply corridor effects with max multiplier for overlapping corridors
         for block in self.grid.blocks:
-            if self.transport_network.is_on_corridor(block.y, block.x):
-                block.units = int(block.units * self.transport_config.density_multiplier)
-                block.population = block.population * self.transport_config.density_multiplier
+            block_key = (block.y, block.x)
+            if block_key in self.transport_network.corridor_details:
+                corridor_info_list = self.transport_network.corridor_details[block_key]
+                max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
+                block.units = int(block.units * max_multiplier)
+                block.population = block.population * max_multiplier
 
     def _apply_density_constraints(self):
         """Apply city-wide density constraints to all blocks"""
@@ -328,10 +352,17 @@ class City:
         if self.transport_network:
             corridor_info = self.transport_network.get_corridor_info()
             print(f"\nTransportation Network:")
-            print(f"  Type: {corridor_info['corridor_type']}")
-            print(f"  Corridor blocks: {corridor_info['total_corridor_blocks']}")
+            print(f"  Number of corridor types: {corridor_info['num_corridor_configs']}")
+            print(f"  Total corridor blocks: {corridor_info['total_corridor_blocks']}")
             print(f"  Coverage: {corridor_info['corridor_coverage_pct']:.1f}%")
-            print(f"  Density boost: {corridor_info['average_density_boost']:.1f}%")
+            print(f"  Average density boost: {corridor_info['average_density_boost']:.1f}%")
+
+            # Show details for each corridor configuration
+            for config_info in corridor_info['corridor_configs']:
+                print(f"\n  Corridor {config_info['index'] + 1}:")
+                print(f"    Type: {config_info['type']}")
+                print(f"    Width: {config_info['width_blocks']} blocks")
+                print(f"    Density boost: {config_info['density_boost_pct']:.1f}%")
 
         print(f"{'='*60}\n")
 
