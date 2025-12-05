@@ -394,3 +394,97 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
         plt.show()
     else:
         plt.close()
+
+
+def visualize_zoning(city, save_path: Optional[str] = None, show: bool = True) -> None:
+    """
+    Create visualizations showing zoning information (density and uses).
+
+    Args:
+        city: City object to visualize
+        save_path: Optional path to save the figure
+        show: Whether to display the plot (default: True)
+    """
+    from .zoning import Use, Density
+
+    grid = city.grid
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 14))
+
+    # Create grids for zoning data
+    density_grid = np.zeros((grid.height, grid.width))
+    residential_grid = np.zeros((grid.height, grid.width))
+    commercial_grid = np.zeros((grid.height, grid.width))
+    office_grid = np.zeros((grid.height, grid.width))
+
+    for block in grid.blocks:
+        if hasattr(block, 'zoning') and block.zoning:
+            # Map density to numeric values
+            density_grid[block.y, block.x] = block.zoning.max_density.value
+
+            # Mark allowed uses
+            if block.zoning.allows_use(Use.RESIDENTIAL):
+                residential_grid[block.y, block.x] = 1
+            if block.zoning.allows_use(Use.COMMERCIAL):
+                commercial_grid[block.y, block.x] = 1
+            if block.zoning.allows_use(Use.OFFICE):
+                office_grid[block.y, block.x] = 1
+
+    # Panel 1: Density Levels
+    ax_density = axes[0, 0]
+    im_density = ax_density.imshow(density_grid, cmap='RdYlGn', origin='lower',
+                                     interpolation='nearest', vmin=1, vmax=3)
+    cbar_density = plt.colorbar(im_density, ax=ax_density, fraction=0.046, pad=0.04,
+                                  ticks=[1, 2, 3])
+    cbar_density.set_ticklabels(['Low', 'Medium', 'High'])
+    cbar_density.set_label('Max Density', rotation=270, labelpad=25, fontsize=12, fontweight='bold')
+    ax_density.set_title('Zoning Density Levels', fontsize=14, fontweight='bold', pad=20)
+    ax_density.set_xlabel('X Coordinate', fontsize=11)
+    ax_density.set_ylabel('Y Coordinate', fontsize=11)
+    ax_density.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_density.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # Panel 2: Residential Zoning
+    ax_res = axes[0, 1]
+    im_res = ax_res.imshow(residential_grid, cmap='Blues', origin='lower',
+                            interpolation='nearest', vmin=0, vmax=1)
+    ax_res.set_title('Residential Zoning', fontsize=14, fontweight='bold', pad=20)
+    ax_res.set_xlabel('X Coordinate', fontsize=11)
+    ax_res.set_ylabel('Y Coordinate', fontsize=11)
+    ax_res.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_res.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # Panel 3: Commercial Zoning
+    ax_com = axes[1, 0]
+    im_com = ax_com.imshow(commercial_grid, cmap='Oranges', origin='lower',
+                            interpolation='nearest', vmin=0, vmax=1)
+    ax_com.set_title('Commercial Zoning', fontsize=14, fontweight='bold', pad=20)
+    ax_com.set_xlabel('X Coordinate', fontsize=11)
+    ax_com.set_ylabel('Y Coordinate', fontsize=11)
+    ax_com.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_com.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # Panel 4: Office Zoning
+    ax_off = axes[1, 1]
+    im_off = ax_off.imshow(office_grid, cmap='Purples', origin='lower',
+                            interpolation='nearest', vmin=0, vmax=1)
+    ax_off.set_title('Office Zoning', fontsize=14, fontweight='bold', pad=20)
+    ax_off.set_xlabel('X Coordinate', fontsize=11)
+    ax_off.set_ylabel('Y Coordinate', fontsize=11)
+    ax_off.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
+    ax_off.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
+
+    # Overall title
+    fig.suptitle(f'City Zoning Map ({grid.width}x{grid.height})',
+                 fontsize=16, fontweight='bold', y=0.98)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to: {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close()

@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from city import City, CityConfig, PolycentricConfig, ParkConfig, Grid, District, Block
+from city import City, CityConfig, PolycentricConfig, ParkConfig, ZoningConfig, Use, Density, Grid, District, Block
 
 
 def test_grid_get_block():
@@ -276,6 +276,78 @@ def test_dispersed_park_placement():
     assert len(city.parks) == 4, "Should create 4 parks with dispersed placement"
 
 
+def test_zoning_generation():
+    """Test basic zoning generation."""
+    config = CityConfig(width=20, height=20, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=2)
+    zoning_config = ZoningConfig(enabled=True)
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # All blocks should have zoning
+    zoned_blocks = [b for b in city.grid.blocks if hasattr(b, 'zoning') and b.zoning is not None]
+    assert len(zoned_blocks) == len(city.grid.blocks), "All blocks should have zoning"
+
+
+def test_center_zoning():
+    """Test that centers are zoned for all uses at high density."""
+    config = CityConfig(width=20, height=20, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=2)
+    zoning_config = ZoningConfig(enabled=True, center_radius_blocks=2)
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Check that at least some blocks near centers have all three uses
+    multi_use_count = 0
+    for block in city.grid.blocks:
+        if block.zoning and len(block.zoning.allowed_uses) == 3:
+            multi_use_count += 1
+            # These should be high density
+            assert block.zoning.max_density == Density.HIGH
+
+    assert multi_use_count > 0, "Should have some blocks zoned for all uses near centers"
+
+
+def test_density_zoning_levels():
+    """Test that density levels are assigned based on unit counts."""
+    config = CityConfig(width=30, height=30, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=2, primary_density=30.0)
+    zoning_config = ZoningConfig(
+        enabled=True,
+        low_density_threshold=20,
+        medium_density_threshold=50
+    )
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Check that blocks are zoned according to their unit counts
+    low_density_blocks = [b for b in city.grid.blocks
+                           if b.zoning and b.zoning.max_density == Density.LOW]
+    high_density_blocks = [b for b in city.grid.blocks
+                            if b.zoning and b.zoning.max_density == Density.HIGH]
+
+    # Should have a mix of density levels
+    assert len(low_density_blocks) > 0, "Should have some low density blocks"
+    assert len(high_density_blocks) > 0, "Should have some high density blocks"
+
+
+def test_zoning_disabled():
+    """Test that zoning can be disabled."""
+    config = CityConfig(width=10, height=10, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=1)
+    zoning_config = ZoningConfig(enabled=False)
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Blocks may have None zoning or no zoning attribute when disabled
+    # Just check that generation succeeds
+    assert city._generated == True
+
+
 if __name__ == '__main__':
     tests = [
         test_grid_get_block,
@@ -290,7 +362,11 @@ if __name__ == '__main__':
         test_combined_noise_and_callable_persons,
         test_park_generation,
         test_park_size_constraints,
-        test_dispersed_park_placement
+        test_dispersed_park_placement,
+        test_zoning_generation,
+        test_center_zoning,
+        test_density_zoning_levels,
+        test_zoning_disabled
     ]
 
     for test in tests:

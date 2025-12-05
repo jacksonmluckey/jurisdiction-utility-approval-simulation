@@ -7,6 +7,7 @@ from typing import Optional, List, Union, Callable
 from .grid import Grid
 from .polycentric_city import PolycentricConfig
 from .transportation_corridor import TransportationConfig, TransportationNetwork
+from .zoning import ZoningConfig, generate_zoning, get_zoning_summary
 
 
 @dataclass
@@ -150,7 +151,8 @@ class City:
                  config: Optional[CityConfig] = None,
                  polycentric_config: Optional[PolycentricConfig] = None,
                  transport_configs: Optional[List[TransportationConfig]] = None,
-                 park_config: Optional[ParkConfig] = None):
+                 park_config: Optional[ParkConfig] = None,
+                 zoning_config: Optional[ZoningConfig] = None):
         """
         Initialize a city with configuration parameters.
 
@@ -159,11 +161,13 @@ class City:
             polycentric_config: Configuration for polycentric density patterns
             transport_configs: List of transportation corridor configurations. Can be a list of one or more configs.
             park_config: Configuration for park generation
+            zoning_config: Configuration for zoning generation
         """
         self.config = config or CityConfig()
         self.polycentric_config = polycentric_config
         self.transport_configs = transport_configs
         self.park_config = park_config
+        self.zoning_config = zoning_config or ZoningConfig()
 
         # Set random seed if specified
         if self.config.random_seed is not None:
@@ -203,6 +207,10 @@ class City:
         # Generate parks (after all density calculations)
         if self.park_config and self.park_config.num_parks > 0:
             self._generate_parks()
+
+        # Generate zoning (after parks, using centers and density info)
+        if self.zoning_config.enabled:
+            generate_zoning(self.grid, self.centers, self.zoning_config)
 
         self._generated = True
         return self.grid
@@ -458,6 +466,18 @@ class City:
         from .visualize import visualize_units
         visualize_units(self.grid, save_path=save_path, show=show)
 
+    def visualize_zoning(self, save_path: Optional[str] = None, show: bool = True):
+        """Visualize zoning map showing density levels and allowed uses"""
+        if not self._generated:
+            raise RuntimeError("City must be generated before visualization. Call generate() first.")
+
+        if not self.zoning_config.enabled:
+            print("Warning: Zoning is not enabled for this city.")
+            return
+
+        from .visualize import visualize_zoning
+        visualize_zoning(self, save_path=save_path, show=show)
+
     def summary(self):
         """Print summary statistics about the city"""
         if not self._generated:
@@ -513,6 +533,21 @@ class City:
             print(f"  Park coverage: {park_coverage_pct:.1f}%")
             avg_park_size = total_park_blocks / len(self.parks)
             print(f"  Average park size: {avg_park_size:.1f} blocks")
+
+        # Show zoning statistics if enabled
+        if self.zoning_config.enabled:
+            from .zoning import Use, Density
+            zoning_summary = get_zoning_summary(self.grid)
+            print(f"\nZoning:")
+            print(f"  Density distribution:")
+            print(f"    Low: {zoning_summary['density_percentages'][Density.LOW]:.1f}%")
+            print(f"    Medium: {zoning_summary['density_percentages'][Density.MEDIUM]:.1f}%")
+            print(f"    High: {zoning_summary['density_percentages'][Density.HIGH]:.1f}%")
+            print(f"  Use permissions:")
+            print(f"    Residential: {zoning_summary['use_percentages'][Use.RESIDENTIAL]:.1f}%")
+            print(f"    Commercial: {zoning_summary['use_percentages'][Use.COMMERCIAL]:.1f}%")
+            print(f"    Office: {zoning_summary['use_percentages'][Use.OFFICE]:.1f}%")
+            print(f"  Mixed-use blocks: {zoning_summary['mixed_use_count']} ({zoning_summary['mixed_use_count']/zoning_summary['total_blocks']*100:.1f}%)")
 
         print(f"{'='*60}\n")
 

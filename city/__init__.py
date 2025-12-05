@@ -4,11 +4,13 @@ from .grid import Grid
 from .city import City, CityConfig, ParkConfig
 from .polycentric_city import PolycentricCity, PolycentricConfig
 from .transportation_corridor import TransportationConfig, TransportationNetwork, CorridorType
+from .zoning import ZoningConfig, Zoning, Use, Density
 from .visualize import (
     visualize_grid,
     visualize_population,
     visualize_units,
     visualize_with_corridors,
+    visualize_zoning,
     print_grid_summary
 )
 
@@ -24,9 +26,14 @@ __all__ = [
     'TransportationConfig',
     'TransportationNetwork',
     'CorridorType',
+    'ZoningConfig',
+    'Zoning',
+    'Use',
+    'Density',
     'visualize_grid',
     'visualize_population',
     'visualize_units',
     'visualize_with_corridors',
+    'visualize_zoning',
     'print_grid_summary'
 ]
