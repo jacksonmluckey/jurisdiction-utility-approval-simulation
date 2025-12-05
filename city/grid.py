@@ -6,7 +6,17 @@ from .block import Block
 
 @dataclass
 class Grid:
-    """Represents the entire grid with all blocks"""
+    """
+    Represents the entire city grid with all blocks.
+
+    The grid is the fundamental spatial structure containing all blocks. Blocks are
+    indexed by (x, y) coordinates where (0, 0) is the bottom-left corner.
+
+    Attributes:
+        width: Number of blocks in the x-direction
+        height: Number of blocks in the y-direction
+        blocks: List of all Block objects in the grid
+    """
     width: int
     height: int
     blocks: List[Block] = field(default_factory=list)

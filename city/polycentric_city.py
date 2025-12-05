@@ -7,18 +7,44 @@ from .transportation_corridor import TransportationNetwork, TransportationConfig
 
 @dataclass
 class PolycentricConfig:
-    """Configuration for polycentric city generation"""
+    """
+    Configuration for polycentric city generation.
+
+    Attributes:
+        num_centers: Number of activity/employment centers (default: 3)
+        center_distribution: Distribution pattern - "uniform" (evenly spaced),
+            "clustered" (grouped together), or "random" (default: "uniform")
+        primary_density: Peak density at primary center in units per acre (default: 18.0)
+        density_decay_rate: Rate of density decay from centers. Lower = flatter/polycentric,
+            higher = steeper/monocentric. Typical: 0.05-0.10 (gradual), 0.10-0.20 (moderate),
+            0.20-0.30 (steep) (default: 0.20)
+        center_strength_decay: Strength multiplier for each subsequent center relative
+            to previous. 0.6 means second center is 60% as strong as first (default: 0.6)
+        block_area_acres: Area of each block in acres (default: 1.0)
+        persons_per_unit: Average household size (default: 2.5)
+        min_center_separation_blocks: Minimum distance between centers (default: 5)
+    """
     num_centers: int = 3
-    center_distribution: str = "uniform"  # "uniform", "clustered", or "random"
-    primary_density: float = 18.0  # units per acre
-    density_decay_rate: float = 0.20  # Lower = flatter gradient (polycentric)
-    center_strength_decay: float = 0.6  # Each subcenter is X times the previous
-    block_area_acres: float = 1.0  # Area of each block in acres
+    center_distribution: str = "uniform"
+    primary_density: float = 18.0
+    density_decay_rate: float = 0.20
+    center_strength_decay: float = 0.6
+    block_area_acres: float = 1.0
     persons_per_unit: float = 2.5
-    min_center_separation_blocks: int = 5  # Minimum distance between centers
+    min_center_separation_blocks: int = 5
 
 class PolycentricCity:
-    """Generates polycentric urban density patterns on a grid"""
+    """
+    Generates polycentric urban density patterns on a grid.
+
+    Creates cities with multiple activity centers where density decays exponentially
+    from each center. Supports uniform, clustered, or random center placement, and
+    can integrate transportation corridors that boost density along routes.
+
+    Note: For most use cases, prefer the City class which provides a simpler interface.
+    Use PolycentricCity directly only when you need granular control over the generation
+    process or want to work with the internal components.
+    """
 
     def __init__(self, grid_rows: int, grid_cols: int,
                  config: PolycentricConfig = None,

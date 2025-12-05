@@ -5,7 +5,16 @@ from .block import Block
 
 @dataclass
 class District:
-    """Represents a district"""
+    """
+    Represents a district composed of multiple blocks.
+
+    Districts are groupings of blocks that can be used for administrative
+    purposes, zoning analysis, or other spatial aggregations.
+
+    Attributes:
+        district_id: Unique identifier for the district
+        blocks: List of Block objects belonging to this district
+    """
     district_id: int
     blocks: List[Block] = field(default_factory=list)
 

@@ -11,21 +11,35 @@ from .transportation_corridor import TransportationConfig, TransportationNetwork
 
 @dataclass
 class CityConfig:
-    """Configuration parameters for city-wide properties"""
+    """
+    Configuration parameters for city-wide properties.
+
+    Attributes:
+        width: Grid width in blocks (default: 50)
+        height: Grid height in blocks (default: 50)
+        block_size_meters: Side length of each block in meters (default: 100.0)
+        block_area_acres: Area of each block in acres. 100m × 100m ≈ 2.47 acres (default: 2.47)
+        max_density_units_per_acre: Maximum housing units per acre (default: 50.0).
+            Typical ranges: 5-20 suburban, 20-60 urban, 60-150+ high-density urban.
+        min_density_units_per_acre: Minimum housing units per acre (default: 0.5)
+        persons_per_unit: Average household size (default: 2.5)
+        random_seed: Random seed for reproducibility. Set to an integer for consistent
+            results across runs (default: None)
+    """
     # Grid dimensions
     width: int = 50
     height: int = 50
 
     # Block physical properties
-    block_size_meters: float = 100.0  # Side length of each block in meters
-    block_area_acres: float = 2.47  # Area of each block (100m x 100m ≈ 2.47 acres)
+    block_size_meters: float = 100.0
+    block_area_acres: float = 2.47
 
     # Density constraints
-    max_density_units_per_acre: float = 50.0  # Maximum housing units per acre
-    min_density_units_per_acre: float = 0.5   # Minimum housing units per acre
+    max_density_units_per_acre: float = 50.0
+    min_density_units_per_acre: float = 0.5
 
     # Population parameters
-    persons_per_unit: float = 2.5  # Average household size
+    persons_per_unit: float = 2.5
 
     # Random seed for reproducibility
     random_seed: Optional[int] = None
@@ -35,20 +49,49 @@ class City:
     """
     Main city class that integrates grid, polycentric density, and transportation.
 
-    This class serves as the primary interface for creating and managing simulated cities.
-    It handles:
-    - Grid creation and management
-    - Polycentric density patterns
-    - Transportation network generation
-    - City-wide parameters (block size, max density, etc.)
+    This class provides a unified interface for creating simulated cities with:
+    - Block-level spatial grid structure
+    - Polycentric density patterns with multiple activity centers
+    - Transportation networks that boost density along corridors
+    - City-wide constraints and parameters
 
-    Example:
-        >>> config = CityConfig(width=100, height=100, max_density_units_per_acre=60)
-        >>> poly_config = PolycentricConfig(num_centers=5, primary_density=25.0)
-        >>> transport = TransportationConfig(corridor_type=CorridorType.INTER_CENTER)
-        >>> city = City(config, poly_config, transport)
+    Basic Usage:
+        >>> from city import City, CityConfig, PolycentricConfig
+        >>>
+        >>> config = CityConfig(width=50, height=50, max_density_units_per_acre=50)
+        >>> polycentric = PolycentricConfig(num_centers=3, primary_density=25.0)
+        >>>
+        >>> city = City(config=config, polycentric_config=polycentric)
         >>> grid = city.generate()
+        >>> city.summary()
         >>> city.visualize()
+
+    With Transportation:
+        >>> from city import TransportationConfig, CorridorType
+        >>>
+        >>> transport = TransportationConfig(
+        ...     corridor_type=CorridorType.INTER_CENTER,
+        ...     corridor_width_blocks=2,
+        ...     density_multiplier=1.20
+        ... )
+        >>> city = City(config, polycentric, transport)
+        >>> city.generate()
+        >>> city.visualize()
+
+    High-Density Urban Example:
+        >>> urban = CityConfig(
+        ...     width=80,
+        ...     height=80,
+        ...     max_density_units_per_acre=100.0,
+        ...     persons_per_unit=2.0
+        ... )
+        >>> polycentric = PolycentricConfig(
+        ...     num_centers=7,
+        ...     primary_density=40.0,
+        ...     density_decay_rate=0.08
+        ... )
+        >>> city = City(config=urban, polycentric_config=polycentric)
+        >>> city.generate()
     """
 
     def __init__(self,
