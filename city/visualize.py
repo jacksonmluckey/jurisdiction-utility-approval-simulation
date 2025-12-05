@@ -1,18 +1,32 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Optional, List
+from typing import Optional, List, Union, overload, TYPE_CHECKING
 from .grid import Grid
 
+if TYPE_CHECKING:
+    from .city import City
 
-def visualize_grid(grid: Grid, save_path: Optional[str] = None, show: bool = True):
+
+@overload
+def visualize_grid(city_or_grid: Grid, save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+@overload
+def visualize_grid(city_or_grid: 'City', save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+def visualize_grid(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] = None, show: bool = True) -> None:
     """
     Create a 2-panel visualization showing population and units distribution.
 
     Args:
-        grid: Grid object to visualize
+        city_or_grid: Grid object or City object to visualize
         save_path: Optional path to save the figure (e.g., 'figures/city_grid.png')
         show: Whether to display the plot (default: True)
     """
+    # Extract grid from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        grid = city_or_grid.grid
+
     fig, axes = plt.subplots(1, 2, figsize=(16, 7))
 
     # Create 2D arrays for population and units
@@ -75,15 +89,26 @@ def visualize_grid(grid: Grid, save_path: Optional[str] = None, show: bool = Tru
         plt.close()
 
 
-def visualize_population(grid: Grid, save_path: Optional[str] = None, show: bool = True):
+@overload
+def visualize_population(city_or_grid: Grid, save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+@overload
+def visualize_population(city_or_grid: 'City', save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+def visualize_population(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] = None, show: bool = True) -> None:
     """
     Create a single-panel visualization showing only population distribution.
 
     Args:
-        grid: Grid object to visualize
+        city_or_grid: Grid object or City object to visualize
         save_path: Optional path to save the figure
         show: Whether to display the plot (default: True)
     """
+    # Extract grid from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        grid = city_or_grid.grid
+
     fig, ax = plt.subplots(figsize=(10, 9))
 
     # Create 2D array for population
@@ -121,15 +146,26 @@ def visualize_population(grid: Grid, save_path: Optional[str] = None, show: bool
         plt.close()
 
 
-def visualize_units(grid: Grid, save_path: Optional[str] = None, show: bool = True):
+@overload
+def visualize_units(city_or_grid: Grid, save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+@overload
+def visualize_units(city_or_grid: 'City', save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+def visualize_units(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] = None, show: bool = True) -> None:
     """
     Create a single-panel visualization showing only housing units distribution.
 
     Args:
-        grid: Grid object to visualize
+        city_or_grid: Grid object or City object to visualize
         save_path: Optional path to save the figure
         show: Whether to display the plot (default: True)
     """
+    # Extract grid from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        grid = city_or_grid.grid
+
     fig, ax = plt.subplots(figsize=(10, 9))
 
     # Create 2D array for units
@@ -167,13 +203,24 @@ def visualize_units(grid: Grid, save_path: Optional[str] = None, show: bool = Tr
         plt.close()
 
 
-def print_grid_summary(grid: Grid):
+@overload
+def print_grid_summary(city_or_grid: Grid) -> None: ...
+
+@overload
+def print_grid_summary(city_or_grid: 'City') -> None: ...
+
+def print_grid_summary(city_or_grid: Union[Grid, 'City']) -> None:
     """
     Print summary statistics about the grid.
 
     Args:
-        grid: Grid object to summarize
+        city_or_grid: Grid object or City object to summarize
     """
+    # Extract grid from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        grid = city_or_grid.grid
+
     populations = [block.population for block in grid.blocks]
     units = [block.units for block in grid.blocks]
 
@@ -207,18 +254,46 @@ def print_grid_summary(grid: Grid):
     print(f"{'='*60}\n")
 
 
-def visualize_with_corridors(grid: Grid, centers: List[dict], transport_network,
-                             save_path: Optional[str] = None, show: bool = True):
+@overload
+def visualize_with_corridors(city_or_grid: Grid,
+                             centers: List[dict],
+                             transport_network,
+                             save_path: Optional[str] = None,
+                             show: bool = True) -> None: ...
+
+@overload
+def visualize_with_corridors(city_or_grid: 'City',
+                             centers: Optional[List[dict]] = None,
+                             transport_network = None,
+                             save_path: Optional[str] = None,
+                             show: bool = True) -> None: ...
+
+def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
+                             centers: Optional[List[dict]] = None,
+                             transport_network = None,
+                             save_path: Optional[str] = None,
+                             show: bool = True) -> None:
     """
     Create a 3-panel visualization showing population, corridors, and combined view.
 
     Args:
-        grid: Grid object to visualize
+        city_or_grid: Grid object or City object to visualize
         centers: List of center dictionaries with 'position' and 'strength' keys
-        transport_network: TransportationNetwork object
+                 (optional if City object is provided)
+        transport_network: TransportationNetwork object (optional if City object is provided)
         save_path: Optional path to save the figure
         show: Whether to display the plot (default: True)
     """
+    # Extract grid, centers, and transport_network from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        city = city_or_grid
+        grid = city.grid
+        if centers is None:
+            centers = city.centers
+        if transport_network is None:
+            transport_network = city.transport_network
+
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 
     # Create 2D arrays

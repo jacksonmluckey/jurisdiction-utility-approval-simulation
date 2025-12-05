@@ -225,7 +225,8 @@ city.visualize_summary()
 #| fig-width: 12
 #| fig-height: 5
 
-visualize_grid(grid, show=True)
+# Pass the city object directly instead of just the grid
+visualize_grid(city, show=True)
 ```
 
 ### Population Distribution
@@ -234,7 +235,8 @@ visualize_grid(grid, show=True)
 #| fig-width: 8
 #| fig-height: 7
 
-visualize_population(grid, show=True)
+# Pass the city object directly instead of just the grid
+visualize_population(city, show=True)
 ```
 
 ### Housing Units Distribution
@@ -243,13 +245,15 @@ visualize_population(grid, show=True)
 #| fig-width: 8
 #| fig-height: 7
 
-visualize_units(grid, show=True)
+# Pass the city object directly instead of just the grid
+visualize_units(city, show=True)
 ```
 
 ## Grid Statistics
 
 ```{python}
-print_grid_summary(grid)
+# Pass the city object directly instead of just the grid
+print_grid_summary(city)
 ```
 
 ## Compare Different Configurations
@@ -269,7 +273,8 @@ config_clustered = PolycentricConfig(
 city_clustered = PolycentricCity(grid_rows=30, grid_cols=30, config=config_clustered)
 grid_clustered = city_clustered.generate()
 
-visualize_grid(grid_clustered, show=True)
+# Pass the city object directly
+visualize_grid(city_clustered, show=True)
 ```
 
 ### Random Centers
@@ -288,7 +293,8 @@ config_random = PolycentricConfig(
 city_random = PolycentricCity(grid_rows=30, grid_cols=30, config=config_random)
 grid_random = city_random.generate()
 
-visualize_grid(grid_random, show=True)
+# Pass the city object directly
+visualize_grid(city_random, show=True)
 ```
 
 ## Cities with Transportation Corridors
@@ -330,13 +336,8 @@ grid_transport = city_transport.generate()
 # Show summary
 city_transport.visualize_summary()
 
-# Visualize with corridors highlighted
-visualize_with_corridors(
-    grid_transport,
-    city_transport.get_center_info(),
-    city_transport.transport_network,
-    show=True
-)
+# Visualize with corridors highlighted - pass city object directly
+visualize_with_corridors(city_transport, show=True)
 ```
 
 ### Radial Corridors (Hub-and-Spoke)
@@ -364,12 +365,8 @@ city_radial = PolycentricCity(
 )
 grid_radial = city_radial.generate()
 
-visualize_with_corridors(
-    grid_radial,
-    city_radial.get_center_info(),
-    city_radial.transport_network,
-    show=True
-)
+# Pass city object directly
+visualize_with_corridors(city_radial, show=True)
 ```
 
 ### Grid Pattern (Manhattan-style)
@@ -394,12 +391,8 @@ city_grid = PolycentricCity(
 )
 grid_grid_pattern = city_grid.generate()
 
-visualize_with_corridors(
-    grid_grid_pattern,
-    city_grid.get_center_info(),
-    city_grid.transport_network,
-    show=True
-)
+# Pass city object directly
+visualize_with_corridors(city_grid, show=True)
 ```
 
 ## San Francisco Clone
@@ -453,10 +446,6 @@ city_sf_like = City(
 )
 grid = city_sf_like.generate()
 
-visualize_with_corridors(
-    grid,
-    city_sf_like.get_center_info(),
-    city_sf_like.transport_network,
-    show=True
-)
+# Pass city object directly
+visualize_with_corridors(city_sf_like, show=True)
 ```
