@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from city import City, CityConfig, PolycentricConfig, Grid, District, Block
+from city import City, CityConfig, PolycentricConfig, ParkConfig, Grid, District, Block
 
 
 def test_grid_get_block():
@@ -221,6 +221,61 @@ def test_combined_noise_and_callable_persons():
             assert 1.5 < ppu < 3.5, f"persons_per_unit {ppu} out of expected range"
 
 
+def test_park_generation():
+    """Test basic park generation creates parks with correct properties."""
+    config = CityConfig(width=20, height=20, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=2)
+    park_config = ParkConfig(num_parks=3, min_size_blocks=2, max_size_blocks=6)
+
+    city = City(config=config, polycentric_config=polycentric, park_config=park_config)
+    city.generate()
+
+    # Check parks were created
+    assert len(city.parks) == 3, f"Expected 3 parks, got {len(city.parks)}"
+
+    # Check park blocks have 0 units and population
+    park_blocks = [b for b in city.grid.blocks if b.is_park]
+    assert len(park_blocks) > 0, "Should have at least some park blocks"
+    assert all(b.units == 0 for b in park_blocks), "All park blocks should have 0 units"
+    assert all(b.population == 0 for b in park_blocks), "All park blocks should have 0 population"
+
+
+def test_park_size_constraints():
+    """Test parks respect size constraints."""
+    config = CityConfig(width=30, height=30, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=1)
+    park_config = ParkConfig(
+        num_parks=5,
+        min_size_blocks=4,
+        max_size_blocks=10,
+        placement_strategy="random"
+    )
+
+    city = City(config=config, polycentric_config=polycentric, park_config=park_config)
+    city.generate()
+
+    # Check each park size is within bounds
+    for park in city.parks:
+        park_size = len(park['blocks'])
+        assert park_config.min_size_blocks <= park_size <= park_config.max_size_blocks, \
+            f"Park size {park_size} outside bounds [{park_config.min_size_blocks}, {park_config.max_size_blocks}]"
+
+
+def test_dispersed_park_placement():
+    """Test dispersed placement strategy spreads parks out."""
+    config = CityConfig(width=40, height=40, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=2)
+    park_config = ParkConfig(
+        num_parks=4,
+        placement_strategy="dispersed"
+    )
+
+    city = City(config=config, polycentric_config=polycentric, park_config=park_config)
+    city.generate()
+
+    assert len(city.parks) == 4, "Should create 4 parks with dispersed placement"
+
+
 if __name__ == '__main__':
     tests = [
         test_grid_get_block,
@@ -232,7 +287,10 @@ if __name__ == '__main__':
         test_units_noise_float_scaling,
         test_units_noise_callable,
         test_persons_per_unit_callable,
-        test_combined_noise_and_callable_persons
+        test_combined_noise_and_callable_persons,
+        test_park_generation,
+        test_park_size_constraints,
+        test_dispersed_park_placement
     ]
 
     for test in tests:

@@ -1,7 +1,7 @@
 from .block import Block
 from .district import District
 from .grid import Grid
-from .city import City, CityConfig
+from .city import City, CityConfig, ParkConfig
 from .polycentric_city import PolycentricCity, PolycentricConfig
 from .transportation_corridor import TransportationConfig, TransportationNetwork, CorridorType
 from .visualize import (
@@ -18,6 +18,7 @@ __all__ = [
     'Grid',
     'City',
     'CityConfig',
+    'ParkConfig',
     'PolycentricCity',
     'PolycentricConfig',
     'TransportationConfig',

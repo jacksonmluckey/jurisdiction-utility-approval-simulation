@@ -24,18 +24,23 @@ def visualize_grid(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] =
     """
     # Extract grid from City object if needed
     grid = city_or_grid
+    has_parks = False
     if hasattr(city_or_grid, 'grid'):
         grid = city_or_grid.grid
+        has_parks = hasattr(city_or_grid, 'parks') and len(city_or_grid.parks) > 0
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 7))
 
     # Create 2D arrays for population and units
     population_grid = np.zeros((grid.height, grid.width))
     units_grid = np.zeros((grid.height, grid.width))
+    park_mask = np.zeros((grid.height, grid.width), dtype=bool)
 
     for block in grid.blocks:
         population_grid[block.y, block.x] = block.population
         units_grid[block.y, block.x] = block.units
+        if hasattr(block, 'is_park') and block.is_park:
+            park_mask[block.y, block.x] = True
 
     # --- Panel 1: Population Distribution ---
     ax_pop = axes[0]
@@ -47,6 +52,11 @@ def visualize_grid(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] =
     ax_pop.set_title('Population Distribution', fontsize=14, fontweight='bold', pad=20)
     ax_pop.set_xlabel('X Coordinate', fontsize=11)
     ax_pop.set_ylabel('Y Coordinate', fontsize=11)
+
+    # Overlay parks if present
+    if has_parks:
+        park_overlay = np.ma.masked_where(~park_mask, np.ones_like(park_mask))
+        ax_pop.imshow(park_overlay, cmap='Greens', alpha=0.6, origin='lower', vmin=0, vmax=1)
 
     # Add grid lines
     ax_pop.set_xticks(np.arange(-0.5, grid.width, 1), minor=True)
@@ -65,6 +75,11 @@ def visualize_grid(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] =
     ax_units.set_title('Housing Units Distribution', fontsize=14, fontweight='bold', pad=20)
     ax_units.set_xlabel('X Coordinate', fontsize=11)
     ax_units.set_ylabel('Y Coordinate', fontsize=11)
+
+    # Overlay parks if present
+    if has_parks:
+        park_overlay = np.ma.masked_where(~park_mask, np.ones_like(park_mask))
+        ax_units.imshow(park_overlay, cmap='Greens', alpha=0.6, origin='lower', vmin=0, vmax=1)
 
     # Add grid lines
     ax_units.set_xticks(np.arange(-0.5, grid.width, 1), minor=True)
