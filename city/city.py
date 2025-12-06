@@ -88,6 +88,14 @@ class CityConfig:
     shop_center_concentration: float = 0.10
     shop_corridor_multiplier: float = 1.3
 
+    # Base density parameters (units per km²)
+    base_housing_density_km2: float = 1235.0
+    base_office_density_km2: float = 741.0
+    base_shop_density_km2: float = 494.0
+
+    # Density combination method
+    density_combination_method: str = "additive"  # "additive", "max", or "multiplicative"
+
     @property
     def block_area_km2(self) -> float:
         """Calculate block area in km² from block size in meters"""

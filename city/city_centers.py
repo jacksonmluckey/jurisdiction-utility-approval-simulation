@@ -136,6 +136,12 @@ class CityCentersConfig:
     min_center_separation_blocks: int = 5
     starting_point: Optional[Tuple[int, int]] = None
 
+    # Office and shop density parameters (units per km²)
+    office_density_km2: Optional[float] = None
+    shop_density_km2: Optional[float] = None
+    office_decay_rate: Optional[float] = None  # defaults to density_decay_rate if None
+    shop_decay_rate: Optional[float] = None  # defaults to density_decay_rate if None
+
     @property
     def block_area_km2(self) -> float:
         """Calculate block area in km² from block size in meters"""
