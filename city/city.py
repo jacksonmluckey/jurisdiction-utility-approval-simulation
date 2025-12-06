@@ -5,7 +5,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional, List, Union, Callable
 from .grid import Grid
-from .polycentric_city import PolycentricConfig
+from .city_centers import CityCentersConfig, place_points
 from .transportation_corridor import TransportationConfig, TransportationNetwork
 from .zoning import ZoningConfig, generate_zoning, get_zoning_summary
 
@@ -19,9 +19,8 @@ class ParkConfig:
         num_parks: Number of parks to generate (default: 0)
         min_size_blocks: Minimum park size in blocks (default: 1)
         max_size_blocks: Maximum park size in blocks (default: 9)
-        placement_strategy: How to place parks - "random" or "dispersed" (default: "random")
-            "random": Place parks randomly
-            "dispersed": Try to spread parks evenly across the city
+        placement_strategy: How to place parks - "uniform" (evenly spaced),
+            "clustered" (grouped together), or "random" (default: "random")
         shape: Park shape - "square" or "circle" (default: "square")
         min_separation_blocks: Minimum distance between parks (default: 3)
     """
@@ -97,21 +96,21 @@ class CityConfig:
 
 class City:
     """
-    Main city class that integrates grid, polycentric density, and transportation.
+    Main city class that integrates grid, density patterns, and transportation.
 
     This class provides a unified interface for creating simulated cities with:
     - Block-level spatial grid structure
-    - Polycentric density patterns with multiple activity centers
+    - City center-based density patterns with multiple activity centers
     - Transportation networks that boost density along corridors
     - City-wide constraints and parameters
 
     Basic Usage:
-        >>> from city import City, CityConfig, PolycentricConfig
+        >>> from city import City, CityConfig, CityCentersConfig
         >>>
         >>> config = CityConfig(width=50, height=50, max_density_units_per_km2=12355.0)
-        >>> polycentric = PolycentricConfig(num_centers=3, primary_density_km2=6178.0)
+        >>> centers_config = CityCentersConfig(num_centers=3, primary_density_km2=6178.0)
         >>>
-        >>> city = City(config=config, polycentric_config=polycentric)
+        >>> city = City(config=config, centers_config=centers_config)
         >>> grid = city.generate()
         >>> city.summary()
         >>> city.visualize()
@@ -124,7 +123,7 @@ class City:
         ...     corridor_width_blocks=2,
         ...     density_multiplier=1.20
         ... )
-        >>> city = City(config, polycentric, transport_configs=[transport])
+        >>> city = City(config, centers_config, transport_configs=[transport])
         >>> city.generate()
         >>> city.visualize()
 
@@ -145,7 +144,7 @@ class City:
         ...     density_multiplier=1.25
         ... )
         >>>
-        >>> city = City(config, polycentric, transport_configs=[highways, transit])
+        >>> city = City(config, centers_config, transport_configs=[highways, transit])
         >>> city.generate()
         >>> city.visualize()
 
@@ -156,35 +155,43 @@ class City:
         ...     max_density_units_per_km2=24710.0,
         ...     persons_per_unit=2.0
         ... )
-        >>> polycentric = PolycentricConfig(
+        >>> centers = CityCentersConfig(
         ...     num_centers=7,
         ...     primary_density_km2=9884.0,
         ...     density_decay_rate=0.08
         ... )
-        >>> city = City(config=urban, polycentric_config=polycentric)
+        >>> city = City(config=urban, centers_config=centers)
         >>> city.generate()
     """
 
     def __init__(self,
                  config: Optional[CityConfig] = None,
-                 polycentric_config: Optional[PolycentricConfig] = None,
+                 centers_config: Optional[CityCentersConfig] = None,
                  transport_configs: Optional[List[TransportationConfig]] = None,
-                 park_config: Optional[ParkConfig] = None,
+                 park_configs: Optional[Union[ParkConfig, List[ParkConfig]]] = None,
                  zoning_config: Optional[ZoningConfig] = None):
         """
         Initialize a city with configuration parameters.
 
         Args:
             config: City-wide configuration (dimensions, block size, max density, etc.)
-            polycentric_config: Configuration for polycentric density patterns
+            centers_config: Configuration for city centers density patterns
             transport_configs: List of transportation corridor configurations. Can be a list of one or more configs.
-            park_config: Configuration for park generation
+            park_configs: Configuration(s) for park generation. Can be a single ParkConfig or a list of ParkConfigs.
             zoning_config: Configuration for zoning generation
         """
         self.config = config or CityConfig()
-        self.polycentric_config = polycentric_config
+        self.centers_config = centers_config
         self.transport_configs = transport_configs
-        self.park_config = park_config
+
+        # Normalize park_configs to a list
+        if park_configs is None:
+            self.park_configs = []
+        elif isinstance(park_configs, ParkConfig):
+            self.park_configs = [park_configs]
+        else:
+            self.park_configs = park_configs
+
         self.zoning_config = zoning_config or ZoningConfig()
 
         # Set random seed if specified
@@ -209,9 +216,9 @@ class City:
         Returns:
             Grid object with populated blocks
         """
-        # Generate polycentric density pattern
-        if self.polycentric_config:
-            self._generate_polycentric_density()
+        # Generate density pattern using city centers
+        if self.centers_config:
+            self._generate_centers_density()
         else:
             self._generate_uniform_density()
 
@@ -223,7 +230,7 @@ class City:
         self._apply_density_constraints()
 
         # Generate parks (after all density calculations)
-        if self.park_config and self.park_config.num_parks > 0:
+        if self.park_configs:
             self._generate_parks()
 
         # Generate zoning (after parks, using centers and density info)
@@ -237,21 +244,21 @@ class City:
         self._generated = True
         return self.grid
 
-    def _generate_polycentric_density(self):
-        """Generate density using polycentric model by delegating to PolycentricCity"""
-        from .polycentric_city import PolycentricCity
+    def _generate_centers_density(self):
+        """Generate density using city centers model by delegating to CityCenters"""
+        from .city_centers import CityCenters
 
-        # Update polycentric config with city parameters to ensure consistency
-        self.polycentric_config.block_size_meters = self.config.block_size_meters
-        self.polycentric_config.persons_per_unit = self.config.persons_per_unit
-        self.polycentric_config.units_noise = self.config.units_noise
+        # Update centers config with city parameters to ensure consistency
+        self.centers_config.block_size_meters = self.config.block_size_meters
+        self.centers_config.persons_per_unit = self.config.persons_per_unit
+        self.centers_config.units_noise = self.config.units_noise
 
-        # Create temporary PolycentricCity to handle density generation
+        # Create temporary CityCenters to handle density generation
         # Don't pass transport_configs - we'll handle that separately in City
-        temp_city = PolycentricCity(
+        temp_city = CityCenters(
             grid_rows=self.config.height,
             grid_cols=self.config.width,
-            config=self.polycentric_config,
+            config=self.centers_config,
             transport_configs=None
         )
         temp_city.generate()
@@ -264,7 +271,7 @@ class City:
             block.population = temp_block.population
 
     def _generate_uniform_density(self):
-        """Generate uniform density across the city (fallback if no polycentric config)"""
+        """Generate uniform density across the city (fallback if no centers config)"""
         default_density = 2471.0  # units per km²
 
         for block in self.grid.blocks:
@@ -345,84 +352,50 @@ class City:
 
     def _generate_parks(self):
         """Generate parks throughout the city"""
-        # Place park centers
-        park_centers = self._place_park_centers()
+        # Process each park configuration
+        for park_config in self.park_configs:
+            if park_config.num_parks == 0:
+                continue
 
-        # For each park center, determine size and mark blocks
-        for park_center in park_centers:
-            size = np.random.randint(
-                self.park_config.min_size_blocks,
-                self.park_config.max_size_blocks + 1
+            # Use common placement utility
+            park_positions = place_points(
+                num_points=park_config.num_parks,
+                grid_rows=self.config.height,
+                grid_cols=self.config.width,
+                placement_strategy=park_config.placement_strategy,
+                min_separation=park_config.min_separation_blocks
             )
 
-            park_blocks = self._get_park_blocks(park_center, size)
+            # For each park position, determine size and mark blocks
+            for park_center in park_positions:
+                size = np.random.randint(
+                    park_config.min_size_blocks,
+                    park_config.max_size_blocks + 1
+                )
 
-            # Mark blocks as parks
-            for block_pos in park_blocks:
-                block = self.grid.get_block(block_pos[1], block_pos[0])
-                if block:
-                    block.is_park = True
-                    block.units = 0
-                    block.population = 0
+                park_blocks = self._get_park_blocks(park_center, size, park_config.shape)
 
-            # Store park info
-            self.parks.append({
-                'center': park_center,
-                'size': size,
-                'blocks': park_blocks
-            })
+                # Mark blocks as parks
+                for block_pos in park_blocks:
+                    block = self.grid.get_block(block_pos[1], block_pos[0])
+                    if block:
+                        block.is_park = True
+                        block.units = 0
+                        block.population = 0
 
-    def _place_park_centers(self) -> List[tuple]:
-        """Place park centers based on placement strategy"""
-        centers = []
+                # Store park info
+                self.parks.append({
+                    'center': park_center,
+                    'size': size,
+                    'blocks': park_blocks
+                })
 
-        if self.park_config.placement_strategy == "dispersed":
-            # Try to space parks evenly
-            grid_size = int(np.sqrt(self.park_config.num_parks)) + 1
-            step_x = self.config.width // (grid_size + 1)
-            step_y = self.config.height // (grid_size + 1)
-
-            for i in range(self.park_config.num_parks):
-                grid_row = i // grid_size
-                grid_col = i % grid_size
-
-                x = step_x * (grid_col + 1) + np.random.randint(-step_x // 3, step_x // 3)
-                y = step_y * (grid_row + 1) + np.random.randint(-step_y // 3, step_y // 3)
-
-                x = np.clip(x, 0, self.config.width - 1)
-                y = np.clip(y, 0, self.config.height - 1)
-
-                centers.append((y, x))
-        else:
-            # Random placement with minimum separation
-            attempts = 0
-            max_attempts = 1000
-
-            while len(centers) < self.park_config.num_parks and attempts < max_attempts:
-                x = np.random.randint(0, self.config.width)
-                y = np.random.randint(0, self.config.height)
-
-                # Check minimum separation
-                valid = True
-                for existing_center in centers:
-                    distance = np.sqrt((x - existing_center[1])**2 + (y - existing_center[0])**2)
-                    if distance < self.park_config.min_separation_blocks:
-                        valid = False
-                        break
-
-                if valid:
-                    centers.append((y, x))
-
-                attempts += 1
-
-        return centers
-
-    def _get_park_blocks(self, center: tuple, size: int) -> List[tuple]:
+    def _get_park_blocks(self, center: tuple, size: int, shape: str) -> List[tuple]:
         """Get list of block positions for a park given its center and size"""
         blocks = []
         center_y, center_x = center
 
-        if self.park_config.shape == "circle":
+        if shape == "circle":
             # Circular park
             radius = np.sqrt(size / np.pi)
             for dy in range(-int(radius) - 1, int(radius) + 2):

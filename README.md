@@ -54,7 +54,7 @@ uv run simulation.py
 ## Basic Usage
 
 ```python
-from city import City, CityConfig, PolycentricConfig, ParkConfig, ZoningConfig
+from city import City, CityConfig, CityCentersConfig, ParkConfig, ZoningConfig
 
 # Configure the city
 config = CityConfig(
@@ -68,8 +68,8 @@ config = CityConfig(
     persons_per_unit=2.5
 )
 
-# Configure polycentric density pattern
-polycentric = PolycentricConfig(
+# Configure city centers density pattern
+centers = CityCentersConfig(
     num_centers=3,
     primary_density_km2=6178.0,
     density_decay_rate=0.20
@@ -89,8 +89,8 @@ zoning = ZoningConfig(enabled=True)
 # Create and generate the city
 city = City(
     config=config,
-    polycentric_config=polycentric,
-    park_config=parks,
+    centers_config=centers,
+    park_configs=parks,
     zoning_config=zoning
 )
 city.generate()
@@ -199,13 +199,13 @@ urban = CityConfig(
     persons_per_unit=2.0
 )
 
-polycentric = PolycentricConfig(
+centers = CityCentersConfig(
     num_centers=7,
     primary_density_km2=9884.0,
     density_decay_rate=0.08
 )
 
-city = City(config=urban, polycentric_config=polycentric)
+city = City(config=urban, centers_config=centers)
 city.generate()
 ```
 

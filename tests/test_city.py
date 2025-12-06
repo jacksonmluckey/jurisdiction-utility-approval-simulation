@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from city import City, CityConfig, PolycentricConfig, ParkConfig, ZoningConfig, Use, Density, Grid, District, Block
+from city import City, CityConfig, CityCentersConfig, ParkConfig, ZoningConfig, Use, Density, Grid, District, Block
 
 
 def test_grid_get_block():
@@ -57,12 +57,12 @@ def test_city_applies_density_constraints():
         block_size_meters=100.0,
         random_seed=42
     )
-    polycentric = PolycentricConfig(
+    centers = CityCentersConfig(
         num_centers=2,
         primary_density_km2=2470.0  # Intentionally high
     )
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     max_units = int(config.max_density_units_per_km2 * config.block_area_km2)
@@ -76,9 +76,9 @@ def test_city_applies_density_constraints():
 def test_city_properties():
     """Test City exposes correct aggregate properties."""
     config = CityConfig(width=5, height=5, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1)
+    centers = CityCentersConfig(num_centers=1)
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     assert city.total_population == city.grid.total_population
@@ -90,9 +90,9 @@ def test_city_properties():
 def test_city_centers_placement():
     """Test City places correct number of centers."""
     config = CityConfig(width=20, height=20, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=3)
+    centers = CityCentersConfig(num_centers=3)
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     assert len(city.centers) == 3
@@ -107,9 +107,9 @@ def test_units_noise_float_scaling():
         units_noise=0.2,  # 20% proportional noise
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=494.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=494.0)
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     # With noise, units should vary from deterministic baseline
@@ -120,7 +120,7 @@ def test_units_noise_float_scaling():
         units_noise=None,
         random_seed=42
     )
-    city_no_noise = City(config=config_no_noise, polycentric_config=polycentric)
+    city_no_noise = City(config=config_no_noise, centers_config=centers)
     city_no_noise.generate()
 
     # At least some blocks should differ (noise should have effect)
@@ -144,9 +144,9 @@ def test_units_noise_callable():
         units_noise=custom_noise,
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=494.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=494.0)
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     # Check that generation succeeds and produces valid results
@@ -168,9 +168,9 @@ def test_persons_per_unit_callable():
         persons_per_unit=density_based_household,
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=618.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=618.0)
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     # Check that household sizes vary as expected
@@ -204,9 +204,9 @@ def test_combined_noise_and_callable_persons():
         persons_per_unit=adaptive_household,
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=2, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=2, primary_density_km2=741.0)
 
-    city = City(config=config, polycentric_config=polycentric)
+    city = City(config=config, centers_config=centers)
     city.generate()
 
     # Verify generation succeeds and produces sensible results
@@ -224,10 +224,10 @@ def test_combined_noise_and_callable_persons():
 def test_park_generation():
     """Test basic park generation creates parks with correct properties."""
     config = CityConfig(width=20, height=20, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2)
+    centers = CityCentersConfig(num_centers=2)
     park_config = ParkConfig(num_parks=3, min_size_blocks=2, max_size_blocks=6)
 
-    city = City(config=config, polycentric_config=polycentric, park_config=park_config)
+    city = City(config=config, centers_config=centers, park_configs=park_config)
     city.generate()
 
     # Check parks were created
@@ -243,7 +243,7 @@ def test_park_generation():
 def test_park_size_constraints():
     """Test parks respect size constraints."""
     config = CityConfig(width=30, height=30, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1)
+    centers = CityCentersConfig(num_centers=1)
     park_config = ParkConfig(
         num_parks=5,
         min_size_blocks=4,
@@ -251,7 +251,7 @@ def test_park_size_constraints():
         placement_strategy="random"
     )
 
-    city = City(config=config, polycentric_config=polycentric, park_config=park_config)
+    city = City(config=config, centers_config=centers, park_configs=park_config)
     city.generate()
 
     # Check each park size is within bounds
@@ -264,13 +264,13 @@ def test_park_size_constraints():
 def test_dispersed_park_placement():
     """Test dispersed placement strategy spreads parks out."""
     config = CityConfig(width=40, height=40, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2)
+    centers = CityCentersConfig(num_centers=2)
     park_config = ParkConfig(
         num_parks=4,
         placement_strategy="dispersed"
     )
 
-    city = City(config=config, polycentric_config=polycentric, park_config=park_config)
+    city = City(config=config, centers_config=centers, park_configs=park_config)
     city.generate()
 
     assert len(city.parks) == 4, "Should create 4 parks with dispersed placement"
@@ -279,10 +279,10 @@ def test_dispersed_park_placement():
 def test_zoning_generation():
     """Test basic zoning generation."""
     config = CityConfig(width=20, height=20, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2)
+    centers = CityCentersConfig(num_centers=2)
     zoning_config = ZoningConfig(enabled=True)
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # All blocks should have zoning
@@ -293,10 +293,10 @@ def test_zoning_generation():
 def test_center_zoning():
     """Test that centers are zoned for all uses at high density."""
     config = CityConfig(width=20, height=20, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2)
+    centers = CityCentersConfig(num_centers=2)
     zoning_config = ZoningConfig(enabled=True, center_radius_blocks=2)
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Check that at least some blocks near centers have all three uses
@@ -313,14 +313,14 @@ def test_center_zoning():
 def test_density_zoning_levels():
     """Test that density levels are assigned based on unit counts."""
     config = CityConfig(width=30, height=30, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=2, primary_density_km2=741.0)
     zoning_config = ZoningConfig(
         enabled=True,
         low_density_threshold=20,
         medium_density_threshold=50
     )
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Check that blocks are zoned according to their unit counts
@@ -337,10 +337,10 @@ def test_density_zoning_levels():
 def test_zoning_disabled():
     """Test that zoning can be disabled."""
     config = CityConfig(width=10, height=10, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1)
+    centers = CityCentersConfig(num_centers=1)
     zoning_config = ZoningConfig(enabled=False)
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Blocks may have None zoning or no zoning attribute when disabled
@@ -351,7 +351,7 @@ def test_zoning_disabled():
 def test_auto_upzone_density():
     """Test automatic density upzoning based on neighbors."""
     config = CityConfig(width=10, height=10, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=741.0)
     zoning_config = ZoningConfig(
         enabled=True,
         auto_upzone_enabled=True,
@@ -360,7 +360,7 @@ def test_auto_upzone_density():
         auto_upzone_iterations=1
     )
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Count density levels before and after
@@ -376,7 +376,7 @@ def test_auto_upzone_density():
 def test_auto_upzone_uses():
     """Test automatic use upzoning based on neighbors."""
     config = CityConfig(width=15, height=15, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=2, primary_density_km2=741.0)
     zoning_config = ZoningConfig(
         enabled=True,
         auto_upzone_enabled=True,
@@ -386,7 +386,7 @@ def test_auto_upzone_uses():
         office_weight=0.5
     )
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Count blocks with commercial and office uses
@@ -403,7 +403,7 @@ def test_auto_upzone_uses():
 def test_auto_upzone_no_diagonals():
     """Test upzoning with only cardinal neighbors (no diagonals)."""
     config = CityConfig(width=10, height=10, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=741.0)
     zoning_config = ZoningConfig(
         enabled=True,
         auto_upzone_enabled=True,
@@ -412,7 +412,7 @@ def test_auto_upzone_no_diagonals():
         auto_upzone_iterations=1
     )
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Should still upzone, but pattern will be different (more cross-shaped)
@@ -425,7 +425,7 @@ def test_auto_upzone_no_diagonals():
 def test_auto_upzone_iterations():
     """Test multiple upzoning iterations spread upzoning further."""
     config = CityConfig(width=15, height=15, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=741.0)
 
     # First, test with 1 iteration
     zoning_config_1 = ZoningConfig(
@@ -434,7 +434,7 @@ def test_auto_upzone_iterations():
         auto_upzone_density_threshold=3,
         auto_upzone_iterations=1
     )
-    city_1 = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config_1)
+    city_1 = City(config=config, centers_config=centers, zoning_config=zoning_config_1)
     city_1.generate()
 
     # Count high density blocks
@@ -448,7 +448,7 @@ def test_auto_upzone_iterations():
         auto_upzone_density_threshold=3,
         auto_upzone_iterations=3
     )
-    city_3 = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config_3)
+    city_3 = City(config=config, centers_config=centers, zoning_config=zoning_config_3)
     city_3.generate()
 
     # Count high density blocks
@@ -462,13 +462,13 @@ def test_auto_upzone_iterations():
 def test_auto_upzone_disabled():
     """Test that auto-upzoning can be disabled."""
     config = CityConfig(width=10, height=10, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    centers = CityCentersConfig(num_centers=1, primary_density_km2=741.0)
     zoning_config = ZoningConfig(
         enabled=True,
         auto_upzone_enabled=False  # Disabled
     )
 
-    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
     city.generate()
 
     # Should generate successfully

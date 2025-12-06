@@ -1,7 +1,7 @@
 ```{python}
 from city import (
     CityConfig,
-    PolycentricConfig,
+    CityCentersConfig,
     TransportationConfig,
     CorridorType,
     ParkConfig,
@@ -27,7 +27,7 @@ complete_config = CityConfig(
     random_seed=42
 )
 
-complete_polycentric = PolycentricConfig(
+city_centers_config = CityCentersConfig(
     num_centers=6,
     center_distribution="clustered",
     primary_density_km2=40000.0,

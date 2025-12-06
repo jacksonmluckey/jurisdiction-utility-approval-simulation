@@ -15,7 +15,7 @@ import sys
 sys.path.append('..')
 
 from city import City, CityConfig
-from city import PolycentricConfig, TransportationConfig, CorridorType
+from city import CityCentersConfig, TransportationConfig, CorridorType
 ```
 
 ## City Class Examples
@@ -40,7 +40,7 @@ city_config = CityConfig(
 )
 
 # Configure polycentric density
-polycentric_config = PolycentricConfig(
+centers_config = CityCentersConfig(
     num_centers=3,
     center_distribution="uniform",
     primary_density_km2=2500.0,
@@ -50,7 +50,7 @@ polycentric_config = PolycentricConfig(
 # Create and generate city
 city = City(
     config=city_config,
-    polycentric_config=polycentric_config
+    centers_config=centers_config
 )
 grid = city.generate()
 
@@ -83,7 +83,7 @@ transport_config = TransportationConfig(
 # Create city with transportation
 city_with_transport = City(
     config=city_config,
-    polycentric_config=polycentric_config,
+    centers_config=centers_config,
     transport_configs=[transport_config]
 )
 grid_transport = city_with_transport.generate()
@@ -107,7 +107,7 @@ high_density_config = CityConfig(
 )
 
 # More centers, higher density
-high_density_polycentric = PolycentricConfig(
+high_density_polycentric = CityCentersConfig(
     num_centers=5,
     center_distribution="uniform",
     primary_density_km2=35.0,
@@ -126,7 +126,7 @@ radial_transport = TransportationConfig(
 
 city_high_density = City(
     config=high_density_config,
-    polycentric_config=high_density_polycentric,
+    centers_config=high_density_polycentric,
     transport_configs=[radial_transport]
 )
 city_high_density.generate()
@@ -167,7 +167,7 @@ radial = TransportationConfig(
 # Create city with all three corridor types
 city_multi = City(
     config=city_config,
-    polycentric_config=polycentric_config,
+    centers_config=centers_config,
     transport_configs=[highways, transit_grid, radial]
 )
 city_multi.generate()
@@ -200,7 +200,7 @@ city_config_noise = CityConfig(
     random_seed=42  # For reproducibility
 )
 
-polycentric_config = PolycentricConfig(
+centers_config = CityCentersConfig(
     num_centers=3,
     center_distribution="uniform",
     primary_density_km2=25.0,
@@ -209,7 +209,7 @@ polycentric_config = PolycentricConfig(
 
 city_noise = City(
     config=city_config_noise,
-    polycentric_config=polycentric_config
+    centers_config=centers_config
 )
 city_noise.generate()
 city_noise.summary()
@@ -262,7 +262,7 @@ city_config_custom_noise = CityConfig(
 
 city_custom_noise = City(
     config=city_config_custom_noise,
-    polycentric_config=polycentric_config
+    centers_config=centers_config
 )
 city_custom_noise.generate()
 city_custom_noise.summary()
@@ -302,7 +302,7 @@ city_config_dynamic = CityConfig(
     random_seed=42
 )
 
-polycentric_dense = PolycentricConfig(
+polycentric_dense = CityCentersConfig(
     num_centers=4,
     center_distribution="uniform",
     primary_density_km2=35.0,
@@ -311,7 +311,7 @@ polycentric_dense = PolycentricConfig(
 
 city_dynamic = City(
     config=city_config_dynamic,
-    polycentric_config=polycentric_dense
+    centers_config=polycentric_dense
 )
 city_dynamic.generate()
 city_dynamic.summary()
@@ -373,7 +373,7 @@ city_config_combined = CityConfig(
     random_seed=42
 )
 
-polycentric_realistic = PolycentricConfig(
+polycentric_realistic = CityCentersConfig(
     num_centers=5,
     center_distribution="uniform",
     primary_density_km2=30.0,
@@ -389,7 +389,7 @@ transit_corridors = TransportationConfig(
 
 city_combined = City(
     config=city_config_combined,
-    polycentric_config=polycentric_realistic,
+    centers_config=polycentric_realistic,
     transport_configs=[transit_corridors]
 )
 city_combined.generate()
@@ -439,7 +439,7 @@ city_config_parks = CityConfig(
     random_seed=42
 )
 
-polycentric_parks = PolycentricConfig(
+polycentric_parks = CityCentersConfig(
     num_centers=3,
     center_distribution="uniform",
     primary_density_km2=28.0,
@@ -448,7 +448,7 @@ polycentric_parks = PolycentricConfig(
 
 city_parks = City(
     config=city_config_parks,
-    polycentric_config=polycentric_parks,
+    centers_config=polycentric_parks,
     park_config=park_config
 )
 city_parks.generate()
@@ -478,7 +478,7 @@ full_city_config = CityConfig(
 )
 
 # Multiple activity centers
-full_polycentric = PolycentricConfig(
+full_polycentric = CityCentersConfig(
     num_centers=5,
     center_distribution="uniform",
     primary_density_km2=35.0,
@@ -504,7 +504,7 @@ full_parks = ParkConfig(
 # Create the complete city
 full_city = City(
     config=full_city_config,
-    polycentric_config=full_polycentric,
+    centers_config=full_polycentric,
     transport_configs=[transit],
     park_config=full_parks
 )
@@ -545,7 +545,7 @@ city_config_zoning = CityConfig(
     random_seed=42
 )
 
-polycentric_zoning = PolycentricConfig(
+polycentric_zoning = CityCentersConfig(
     num_centers=3,
     center_distribution="clustered",
     primary_density_km2=32.0,
@@ -555,7 +555,7 @@ polycentric_zoning = PolycentricConfig(
 
 city_zoning = City(
     config=city_config_zoning,
-    polycentric_config=polycentric_zoning,
+    centers_config=polycentric_zoning,
     zoning_config=zoning_config
 )
 city_zoning.generate()
@@ -584,7 +584,7 @@ complete_config = CityConfig(
     random_seed=42
 )
 
-complete_polycentric = PolycentricConfig(
+complete_polycentric = CityCentersConfig(
     num_centers=6,
     center_distribution="clustered",
     primary_density_km2=40000.0,
@@ -620,7 +620,7 @@ complete_zoning = ZoningConfig(
 
 complete_city = City(
     config=complete_config,
-    polycentric_config=complete_polycentric,
+    centers_config=complete_polycentric,
     transport_configs=[inter_city_transit, grid_transit],
     park_config=complete_parks,
     zoning_config=complete_zoning
@@ -639,12 +639,12 @@ complete_city.visualize_zoning()
 
 ## Alternative: Using Individual Components
 
-You can also use `PolycentricCity` directly for more granular control:
+You can also use `CityCenters` directly for more granular control:
 
 ### Setup (Alternative)
 
 ```{python}
-from city import PolycentricCity, PolycentricConfig
+from city import CityCenters, CityCentersConfig
 from city import visualize_grid, visualize_population, visualize_units, print_grid_summary
 from city import visualize_with_corridors
 ```
@@ -655,7 +655,7 @@ Create a city with 3 centers distributed uniformly:
 
 ```{python}
 # Configure the city
-config = PolycentricConfig(
+config = CityCentersConfig(
     num_centers=5,
     center_distribution="uniform",
     primary_density_km2=18.0,
@@ -665,7 +665,7 @@ config = PolycentricConfig(
 )
 
 # Generate the city
-city = PolycentricCity(grid_rows=100, grid_cols=100, config=config)
+city = CityCenters(grid_rows=100, grid_cols=100, config=config)
 grid = city.generate()
 
 # Show summary
@@ -719,13 +719,13 @@ print_grid_summary(city)
 #| fig-width: 12
 #| fig-height: 5
 
-config_clustered = PolycentricConfig(
+config_clustered = CityCentersConfig(
     num_centers=3,
     center_distribution="clustered",
     primary_density_km2=18.0
 )
 
-city_clustered = PolycentricCity(grid_rows=30, grid_cols=30, config=config_clustered)
+city_clustered = CityCenters(grid_rows=30, grid_cols=30, config=config_clustered)
 grid_clustered = city_clustered.generate()
 
 # Pass the city object directly
@@ -738,14 +738,14 @@ visualize_grid(city_clustered, show=True)
 #| fig-width: 12
 #| fig-height: 5
 
-config_random = PolycentricConfig(
+config_random = CityCentersConfig(
     num_centers=5,
     center_distribution="random",
     primary_density_km2=18.0,
     min_center_separation_blocks=8
 )
 
-city_random = PolycentricCity(grid_rows=30, grid_cols=30, config=config_random)
+city_random = CityCenters(grid_rows=30, grid_cols=30, config=config_random)
 grid_random = city_random.generate()
 
 # Pass the city object directly
@@ -765,7 +765,7 @@ Connect all activity centers with transportation corridors:
 #| fig-height: 5
 
 # Configure city with transportation
-config_transport = PolycentricConfig(
+config_transport = CityCentersConfig(
     num_centers=4,
     center_distribution="uniform",
     primary_density_km2=18.0,
@@ -780,7 +780,7 @@ transport_config = TransportationConfig(
 )
 
 # Generate city with corridors
-city_transport = PolycentricCity(
+city_transport = CityCenters(
     grid_rows=60,
     grid_cols=60,
     config=config_transport,
@@ -812,7 +812,7 @@ transport_config_radial = TransportationConfig(
     ring_road_radius_blocks=15
 )
 
-city_radial = PolycentricCity(
+city_radial = CityCenters(
     grid_rows=60,
     grid_cols=60,
     config=config_transport,
@@ -838,7 +838,7 @@ transport_config_grid = TransportationConfig(
     density_multiplier=1.10
 )
 
-city_grid = PolycentricCity(
+city_grid = CityCenters(
     grid_rows=60,
     grid_cols=60,
     config=config_transport,
@@ -863,7 +863,7 @@ city_config = CityConfig(
 )
 
 # Configure polycentric density
-polycentric_config = PolycentricConfig(
+centers_config = CityCentersConfig(
     num_centers=8,
     center_distribution="uniform",
     primary_density_km2=50,
@@ -895,7 +895,7 @@ radial = TransportationConfig(
 # Create city with all three corridor types
 city_sf_like = City(
     config=city_config,
-    polycentric_config=polycentric_config,
+    centers_config=centers_config,
     transport_configs=[main_roads, transit_grid, radial]
 )
 grid = city_sf_like.generate()
@@ -932,7 +932,7 @@ commercial_config = CityConfig(
     random_seed=42
 )
 
-polycentric_commercial = PolycentricConfig(
+polycentric_commercial = CityCentersConfig(
     num_centers=3,
     center_distribution="uniform",
     primary_density_km2=30.0,
@@ -947,7 +947,7 @@ zoning_commercial = ZoningConfig(
 
 city_commercial = City(
     config=commercial_config,
-    polycentric_config=polycentric_commercial,
+    centers_config=polycentric_commercial,
     zoning_config=zoning_commercial
 )
 city_commercial.generate()
@@ -985,7 +985,7 @@ corridor_city_config = CityConfig(
     random_seed=42
 )
 
-polycentric_corridor = PolycentricConfig(
+polycentric_corridor = CityCentersConfig(
     num_centers=4,
     center_distribution="uniform",
     primary_density_km2=35.0,
@@ -1007,7 +1007,7 @@ zoning_corridor = ZoningConfig(
 
 city_corridor = City(
     config=corridor_city_config,
-    polycentric_config=polycentric_corridor,
+    centers_config=polycentric_corridor,
     transport_configs=[grid_transit],
     zoning_config=zoning_corridor
 )
@@ -1069,7 +1069,7 @@ downtown_config = CityConfig(
 )
 
 # Single strong center (CBD)
-downtown_polycentric = PolycentricConfig(
+downtown_polycentric = CityCentersConfig(
     num_centers=1,  # Single downtown
     center_distribution="uniform",
     primary_density_km2=60.0,
@@ -1095,7 +1095,7 @@ downtown_zoning = ZoningConfig(
 
 city_downtown = City(
     config=downtown_config,
-    polycentric_config=downtown_polycentric,
+    centers_config=downtown_polycentric,
     transport_configs=[downtown_transit],
     zoning_config=downtown_zoning
 )
@@ -1148,7 +1148,7 @@ metro_config = CityConfig(
 )
 
 # Multiple commercial centers
-metro_polycentric = PolycentricConfig(
+metro_polycentric = CityCentersConfig(
     num_centers=6,
     center_distribution="uniform",
     primary_density_km2=45.0,
@@ -1181,7 +1181,7 @@ metro_zoning = ZoningConfig(
 
 city_metro = City(
     config=metro_config,
-    polycentric_config=metro_polycentric,
+    centers_config=metro_polycentric,
     transport_configs=[highways, local_streets],
     zoning_config=metro_zoning
 )
@@ -1237,7 +1237,7 @@ complete_commercial_config = CityConfig(
     random_seed=42
 )
 
-complete_polycentric = PolycentricConfig(
+complete_polycentric = CityCentersConfig(
     num_centers=7,
     center_distribution="clustered",
     primary_density_km2=55.0,
@@ -1276,7 +1276,7 @@ complete_zoning = ZoningConfig(
 
 complete_city_final = City(
     config=complete_commercial_config,
-    polycentric_config=complete_polycentric,
+    centers_config=complete_polycentric,
     transport_configs=[major_roads, arterials],
     park_config=complete_parks,
     zoning_config=complete_zoning
@@ -1322,7 +1322,7 @@ upzone_config = CityConfig(
     random_seed=42
 )
 
-upzone_polycentric = PolycentricConfig(
+upzone_polycentric = CityCentersConfig(
     num_centers=2,
     primary_density_km2=618.0
 )
@@ -1339,7 +1339,7 @@ zoning_no_upzone = ZoningConfig(
 
 city_no_upzone = City(
     config=upzone_config,
-    polycentric_config=upzone_polycentric,
+    centers_config=upzone_polycentric,
     zoning_config=zoning_no_upzone
 )
 city_no_upzone.generate()
@@ -1381,7 +1381,7 @@ zoning_moderate = ZoningConfig(
 
 city_moderate = City(
     config=upzone_config,
-    polycentric_config=upzone_polycentric,
+    centers_config=upzone_polycentric,
     zoning_config=zoning_moderate
 )
 city_moderate.generate()
@@ -1422,7 +1422,7 @@ zoning_aggressive = ZoningConfig(
 
 city_aggressive = City(
     config=upzone_config,
-    polycentric_config=upzone_polycentric,
+    centers_config=upzone_polycentric,
     zoning_config=zoning_aggressive
 )
 city_aggressive.generate()

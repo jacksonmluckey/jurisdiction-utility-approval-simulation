@@ -1,4 +1,4 @@
-"""Tests for PolycentricCity class and transportation integration."""
+"""Tests for CityCenters class and transportation integration."""
 
 import sys
 from pathlib import Path
@@ -8,20 +8,20 @@ from contextlib import redirect_stdout
 # Add parent directory to path to import city modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from city.polycentric_city import PolycentricCity, PolycentricConfig
+from city.city_centers import CityCenters, CityCentersConfig
 from city.transportation_corridor import TransportationConfig, CorridorType
 
 
 def test_visualize_summary_without_transport():
     """Test that visualize_summary works without transportation config."""
-    config = PolycentricConfig(
+    config = CityCentersConfig(
         num_centers=2,
         center_distribution="uniform",
-        primary_density=18.0,
+        primary_density_km2=18.0,
         density_decay_rate=0.15
     )
 
-    city = PolycentricCity(
+    city = CityCenters(
         grid_rows=20,
         grid_cols=20,
         config=config
@@ -42,10 +42,10 @@ def test_visualize_summary_without_transport():
 
 def test_visualize_summary_with_single_transport():
     """Test that visualize_summary works with a single transportation config."""
-    config = PolycentricConfig(
+    config = CityCentersConfig(
         num_centers=3,
         center_distribution="uniform",
-        primary_density=18.0,
+        primary_density_km2=18.0,
         density_decay_rate=0.15
     )
 
@@ -56,7 +56,7 @@ def test_visualize_summary_with_single_transport():
         connect_all_centers=True
     )
 
-    city = PolycentricCity(
+    city = CityCenters(
         grid_rows=30,
         grid_cols=30,
         config=config,
@@ -82,10 +82,10 @@ def test_visualize_summary_with_single_transport():
 
 def test_visualize_summary_with_multiple_transports():
     """Test that visualize_summary works with multiple transportation configs."""
-    config = PolycentricConfig(
+    config = CityCentersConfig(
         num_centers=4,
         center_distribution="uniform",
-        primary_density=18.0,
+        primary_density_km2=18.0,
         density_decay_rate=0.15
     )
 
@@ -104,7 +104,7 @@ def test_visualize_summary_with_multiple_transports():
         )
     ]
 
-    city = PolycentricCity(
+    city = CityCenters(
         grid_rows=40,
         grid_cols=40,
         config=config,
@@ -128,10 +128,10 @@ def test_visualize_summary_with_multiple_transports():
 
 def test_corridor_info_dict_structure():
     """Test that get_corridor_info returns the expected dictionary structure."""
-    config = PolycentricConfig(
+    config = CityCentersConfig(
         num_centers=3,
         center_distribution="uniform",
-        primary_density=18.0,
+        primary_density_km2=18.0,
         density_decay_rate=0.15
     )
 
@@ -142,7 +142,7 @@ def test_corridor_info_dict_structure():
         connect_all_centers=True
     )
 
-    city = PolycentricCity(
+    city = CityCenters(
         grid_rows=30,
         grid_cols=30,
         config=config,
@@ -179,10 +179,10 @@ def test_corridor_info_dict_structure():
 
 def test_corridor_info_with_multiple_configs():
     """Test corridor_info structure with multiple transport configurations."""
-    config = PolycentricConfig(
+    config = CityCentersConfig(
         num_centers=4,
         center_distribution="uniform",
-        primary_density=18.0,
+        primary_density_km2=18.0,
         density_decay_rate=0.15
     )
 
@@ -204,7 +204,7 @@ def test_corridor_info_with_multiple_configs():
         )
     ]
 
-    city = PolycentricCity(
+    city = CityCenters(
         grid_rows=40,
         grid_cols=40,
         config=config,

@@ -15,10 +15,11 @@ The simulation uses a grid-based spatial model:
 
 The simulation creates realistic urban density patterns using a **polycentric model**:
 
-- **[PolycentricCity](polycentric_city.py)**: Generates density using multiple activity centers where density decays exponentially with distance
+- **[CityCenters](city_centers.py)**: Generates density using multiple activity centers where density decays exponentially with distance
 - Centers can be distributed uniformly (evenly spaced), clustered (grouped together), or randomly
 - Each center contributes to nearby blocks, with contributions summing additively
 - Supports configurable decay rates to simulate monocentric vs. polycentric cities
+- Supports optional starting point for the first center (defaults to center of grid)
 
 ### Transportation Networks
 
@@ -50,9 +51,10 @@ The simulation generates office and retail activity:
 
 Parks create green space throughout the city:
 
-- Configurable number, size, and placement strategy (random or dispersed)
+- Configurable number, size, and placement strategy (uniform, clustered, or random)
 - Can be square or circular shaped
 - Remove housing/population from park blocks
+- Supports multiple park configurations (e.g., different types of parks with different settings)
 
 ## Main Interface
 
@@ -65,7 +67,7 @@ The **[City](city.py)** class provides a unified interface that orchestrates all
 5. Applies zoning rules
 6. Generates office and retail distribution
 
-Configure the city using `CityConfig`, `PolycentricConfig`, `TransportationConfig`, `ParkConfig`, and `ZoningConfig`, then call `generate()` to create the simulation.
+Configure the city using `CityConfig`, `CityCentersConfig` (also available as `PolycentricConfig` for backwards compatibility), `TransportationConfig`, `ParkConfig`, and `ZoningConfig`, then call `generate()` to create the simulation.
 
 ## Simulation Flow
 
