@@ -1,0 +1,72 @@
+```{python}
+from city import (
+    CityConfig,
+    PolycentricConfig,
+    TransportationConfig,
+    CorridorType,
+    ParkConfig,
+    ZoningConfig,
+    City
+)
+```
+
+```{python}
+# Full feature city
+complete_config = CityConfig(
+    width=200,
+    height=200,
+    max_density_units_per_km2=50000,
+    max_density_offices_per_km2=100000,
+    max_density_shops_per_km2=25000,
+    units_noise=0.12,
+    persons_per_unit=lambda units, noise: 2.8 if units < 35 else 2.0,
+    random_seed=42
+)
+
+complete_polycentric = PolycentricConfig(
+    num_centers=6,
+    center_distribution="clustered",
+    primary_density_km2=40000.0,
+    density_decay_rate=0.11,
+    min_center_separation_blocks=15
+)
+
+inter_city_transit = TransportationConfig(
+    corridor_type=CorridorType.INTER_CENTER,
+    corridor_width_blocks=2,
+    density_multiplier=1.18
+)
+
+grid_transit = TransportationConfig(
+    corridor_type=CorridorType.GRID,
+    corridor_width_blocks=1,
+    density_multiplier=1.05
+)
+
+complete_parks = ParkConfig(
+    num_parks=20,
+    min_size_blocks=3,
+    max_size_blocks=25,
+    placement_strategy="dispersed"
+)
+
+complete_zoning = ZoningConfig(
+    enabled=True,
+    low_density_threshold=25,
+    medium_density_threshold=55,
+    center_radius_blocks=3
+)
+
+complete_city = City(
+    config=complete_config,
+    polycentric_config=complete_polycentric,
+    transport_configs=[inter_city_transit, grid_transit],
+    park_config=complete_parks,
+    zoning_config=complete_zoning
+)
+complete_city.generate()
+complete_city.summary()
+
+complete_city.visualize()
+complete_city.visualize_zoning()
+```

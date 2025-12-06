@@ -55,8 +55,8 @@ class CityConfig:
             - Callable[[int], float]: Function that takes base_units and returns noise value to add
         random_seed: Random seed for reproducibility. Set to an integer for consistent
             results across runs (default: None)
-        max_office_density_per_km2: Maximum office units per km² (default: 7413.0)
-        max_shop_density_per_km2: Maximum shop/retail units per km² (default: 4942.0)
+        max_density_offices_per_km2: Maximum office units per km² (default: 7413.0)
+        max_density_shops_per_km2: Maximum shop/retail units per km² (default: 4942.0)
         office_center_concentration: Exponential decay rate for offices from centers.
             Higher values = more concentrated at center (default: 0.15)
         shop_center_concentration: Exponential decay rate for shops from centers.
@@ -83,8 +83,8 @@ class CityConfig:
     random_seed: Optional[int] = None
 
     # Commercial density parameters (units per km²)
-    max_office_density_per_km2: float = 7413.0
-    max_shop_density_per_km2: float = 4942.0
+    max_density_offices_per_km2: float = 7413.0
+    max_density_shops_per_km2: float = 4942.0
     office_center_concentration: float = 0.15
     shop_center_concentration: float = 0.10
     shop_corridor_multiplier: float = 1.3
@@ -455,7 +455,7 @@ class City:
         if not self.centers:
             return
 
-        max_offices_per_block = int(self.config.max_office_density_per_km2 *
+        max_offices_per_block = int(self.config.max_density_offices_per_km2 *
                                      self.config.block_area_km2)
 
         for block in self.grid.blocks:
@@ -488,7 +488,7 @@ class City:
         if not self.centers:
             return
 
-        max_shops_per_block = int(self.config.max_shop_density_per_km2 *
+        max_shops_per_block = int(self.config.max_density_shops_per_km2 *
                                    self.config.block_area_km2)
 
         for block in self.grid.blocks:

@@ -63,8 +63,8 @@ config = CityConfig(
     block_size_meters=100.0,
     max_density_units_per_km2=12355.0,
     min_density_units_per_km2=124.0,
-    max_office_density_per_km2=7413.0,
-    max_shop_density_per_km2=4942.0,
+    max_density_offices_per_km2=7413.0,
+    max_density_shops_per_km2=4942.0,
     persons_per_unit=2.5
 )
 
@@ -112,8 +112,8 @@ city.visualize()
   - High-Density Urban: 37065-91435+ units/km�
 
 ### Commercial Density Parameters
-- `max_office_density_per_km2`: Maximum office units per km� (default: 7413.0)
-- `max_shop_density_per_km2`: Maximum retail units per km� (default: 4942.0)
+- `max_density_offices_per_km2`: Maximum office units per km� (default: 7413.0)
+- `max_density_shops_per_km2`: Maximum retail units per km� (default: 4942.0)
 - `office_center_concentration`: Controls office concentration at centers (default: 0.15)
 - `shop_center_concentration`: Controls shop concentration at centers (default: 0.10)
 - `shop_corridor_multiplier`: Density boost for shops along transit corridors (default: 1.3)
@@ -194,8 +194,8 @@ urban = CityConfig(
     height=80,
     block_size_meters=100.0,
     max_density_units_per_km2=24710.0,
-    max_office_density_per_km2=14826.0,
-    max_shop_density_per_km2=9884.0,
+    max_density_offices_per_km2=14826.0,
+    max_density_shops_per_km2=9884.0,
     persons_per_unit=2.0
 )
 
