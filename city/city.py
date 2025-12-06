@@ -42,10 +42,9 @@ class CityConfig:
         width: Grid width in blocks (default: 50)
         height: Grid height in blocks (default: 50)
         block_size_meters: Side length of each block in meters (default: 100.0)
-        block_area_acres: Area of each block in acres. 100m × 100m ≈ 2.47 acres (default: 2.47)
-        max_density_units_per_acre: Maximum housing units per acre (default: 50.0).
-            Typical ranges: 5-20 suburban, 20-60 urban, 60-150+ high-density urban.
-        min_density_units_per_acre: Minimum housing units per acre (default: 0.5)
+        max_density_units_per_km2: Maximum housing units per km² (default: 1235.0).
+            Typical ranges: 125-500 suburban, 500-1500 urban, 1500-3700+ high-density urban.
+        min_density_units_per_km2: Minimum housing units per km² (default: 12.5)
         persons_per_unit: Average household size or a function that takes (units, noise) and returns
             household size. Can be a float for constant value, or a callable for variable values
             based on block characteristics (default: 2.5)
@@ -56,8 +55,8 @@ class CityConfig:
             - Callable[[int], float]: Function that takes base_units and returns noise value to add
         random_seed: Random seed for reproducibility. Set to an integer for consistent
             results across runs (default: None)
-        max_office_density_per_acre: Maximum office units per acre (default: 30.0)
-        max_shop_density_per_acre: Maximum shop/retail units per acre (default: 20.0)
+        max_office_density_per_km2: Maximum office units per km² (default: 741.0)
+        max_shop_density_per_km2: Maximum shop/retail units per km² (default: 494.0)
         office_center_concentration: Exponential decay rate for offices from centers.
             Higher values = more concentrated at center (default: 0.15)
         shop_center_concentration: Exponential decay rate for shops from centers.
@@ -71,11 +70,10 @@ class CityConfig:
 
     # Block physical properties
     block_size_meters: float = 100.0
-    block_area_acres: float = 2.47
 
-    # Density constraints
-    max_density_units_per_acre: float = 50.0
-    min_density_units_per_acre: float = 0.5
+    # Density constraints (units per km²)
+    max_density_units_per_km2: float = 1235.0
+    min_density_units_per_km2: float = 12.5
 
     # Population parameters
     persons_per_unit: Union[float, Callable[[int, Optional[float]], float]] = 2.5
@@ -84,12 +82,17 @@ class CityConfig:
     # Random seed for reproducibility
     random_seed: Optional[int] = None
 
-    # Commercial density parameters
-    max_office_density_per_acre: float = 30.0
-    max_shop_density_per_acre: float = 20.0
+    # Commercial density parameters (units per km²)
+    max_office_density_per_km2: float = 741.0
+    max_shop_density_per_km2: float = 494.0
     office_center_concentration: float = 0.15
     shop_center_concentration: float = 0.10
     shop_corridor_multiplier: float = 1.3
+
+    @property
+    def block_area_km2(self) -> float:
+        """Calculate block area in km² from block size in meters"""
+        return (self.block_size_meters / 1000.0) ** 2
 
 
 class City:
@@ -105,8 +108,8 @@ class City:
     Basic Usage:
         >>> from city import City, CityConfig, PolycentricConfig
         >>>
-        >>> config = CityConfig(width=50, height=50, max_density_units_per_acre=50)
-        >>> polycentric = PolycentricConfig(num_centers=3, primary_density=25.0)
+        >>> config = CityConfig(width=50, height=50, max_density_units_per_km2=1235.0)
+        >>> polycentric = PolycentricConfig(num_centers=3, primary_density_km2=618.0)
         >>>
         >>> city = City(config=config, polycentric_config=polycentric)
         >>> grid = city.generate()
@@ -150,12 +153,12 @@ class City:
         >>> urban = CityConfig(
         ...     width=80,
         ...     height=80,
-        ...     max_density_units_per_acre=100.0,
+        ...     max_density_units_per_km2=2470.0,
         ...     persons_per_unit=2.0
         ... )
         >>> polycentric = PolycentricConfig(
         ...     num_centers=7,
-        ...     primary_density=40.0,
+        ...     primary_density_km2=988.0,
         ...     density_decay_rate=0.08
         ... )
         >>> city = City(config=urban, polycentric_config=polycentric)
@@ -239,7 +242,7 @@ class City:
         from .polycentric_city import PolycentricCity
 
         # Update polycentric config with city parameters to ensure consistency
-        self.polycentric_config.block_area_acres = self.config.block_area_acres
+        self.polycentric_config.block_size_meters = self.config.block_size_meters
         self.polycentric_config.persons_per_unit = self.config.persons_per_unit
         self.polycentric_config.units_noise = self.config.units_noise
 
@@ -262,10 +265,10 @@ class City:
 
     def _generate_uniform_density(self):
         """Generate uniform density across the city (fallback if no polycentric config)"""
-        default_density = 10.0  # units per acre
+        default_density = 247.0  # units per km²
 
         for block in self.grid.blocks:
-            base_units = int(default_density * self.config.block_area_acres)
+            base_units = int(default_density * self.config.block_area_km2)
 
             # Apply noise to units if configured
             noise_value = None
@@ -316,10 +319,10 @@ class City:
 
     def _apply_density_constraints(self):
         """Apply city-wide density constraints to all blocks"""
-        max_units_per_block = int(self.config.max_density_units_per_acre *
-                                   self.config.block_area_acres)
-        min_units_per_block = int(self.config.min_density_units_per_acre *
-                                   self.config.block_area_acres)
+        max_units_per_block = int(self.config.max_density_units_per_km2 *
+                                   self.config.block_area_km2)
+        min_units_per_block = int(self.config.min_density_units_per_km2 *
+                                   self.config.block_area_km2)
 
         for block in self.grid.blocks:
             # Apply maximum density constraint
@@ -452,8 +455,8 @@ class City:
         if not self.centers:
             return
 
-        max_offices_per_block = int(self.config.max_office_density_per_acre *
-                                     self.config.block_area_acres)
+        max_offices_per_block = int(self.config.max_office_density_per_km2 *
+                                     self.config.block_area_km2)
 
         for block in self.grid.blocks:
             # Skip parks
@@ -485,8 +488,8 @@ class City:
         if not self.centers:
             return
 
-        max_shops_per_block = int(self.config.max_shop_density_per_acre *
-                                   self.config.block_area_acres)
+        max_shops_per_block = int(self.config.max_shop_density_per_km2 *
+                                   self.config.block_area_km2)
 
         for block in self.grid.blocks:
             # Skip parks
@@ -577,15 +580,15 @@ class City:
         print(f"{'='*60}")
         print(f"Dimensions: {self.config.width}x{self.config.height} blocks")
         print(f"Block size: {self.config.block_size_meters}m x {self.config.block_size_meters}m")
-        print(f"Block area: {self.config.block_area_acres:.2f} acres")
-        print(f"Max density: {self.config.max_density_units_per_acre:.1f} units/acre")
+        print(f"Block area: {self.config.block_area_km2:.6f} km²")
+        print(f"Max density: {self.config.max_density_units_per_km2:.1f} units/km²")
 
         if self.centers:
             print(f"\nActivity Centers: {len(self.centers)}")
             for i, center in enumerate(self.centers):
                 print(f"  Center {i+1}: Position {center['position']}, "
                       f"Strength {center['strength']:.2f}, "
-                      f"Peak Density {center['peak_density']:.1f} units/acre")
+                      f"Peak Density {center['peak_density']:.1f} units/km²")
 
         total_units = sum(block.units for block in self.grid.blocks)
         total_population = self.grid.total_population
@@ -661,14 +664,14 @@ class City:
         return sum(block.units for block in self.grid.blocks)
 
     @property
-    def total_area_acres(self) -> float:
-        """Get total city area in acres"""
-        return self.config.width * self.config.height * self.config.block_area_acres
+    def total_area_km2(self) -> float:
+        """Get total city area in km²"""
+        return self.config.width * self.config.height * self.config.block_area_km2
 
     @property
     def average_density(self) -> float:
-        """Get average density in units per acre"""
-        return self.total_units / self.total_area_acres if self.total_area_acres > 0 else 0
+        """Get average density in units per km²"""
+        return self.total_units / self.total_area_km2 if self.total_area_km2 > 0 else 0
 
     def get_center_info(self) -> List[dict]:
         """Get information about placed centers"""

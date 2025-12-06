@@ -14,13 +14,13 @@ class PolycentricConfig:
         num_centers: Number of activity/employment centers (default: 3)
         center_distribution: Distribution pattern - "uniform" (evenly spaced),
             "clustered" (grouped together), or "random" (default: "uniform")
-        primary_density: Peak density at primary center in units per acre (default: 18.0)
+        primary_density_km2: Peak density at primary center in units per km² (default: 445.0)
         density_decay_rate: Rate of density decay from centers. Lower = flatter/polycentric,
             higher = steeper/monocentric. Typical: 0.05-0.10 (gradual), 0.10-0.20 (moderate),
             0.20-0.30 (steep) (default: 0.20)
         center_strength_decay: Strength multiplier for each subsequent center relative
             to previous. 0.6 means second center is 60% as strong as first (default: 0.6)
-        block_area_acres: Area of each block in acres (default: 1.0)
+        block_size_meters: Side length of each block in meters (default: 100.0)
         persons_per_unit: Average household size or a function that takes (units, noise) and returns
             household size. Can be a float for constant value, or a callable for variable values
             based on block characteristics (default: 2.5)
@@ -33,13 +33,18 @@ class PolycentricConfig:
     """
     num_centers: int = 3
     center_distribution: str = "uniform"
-    primary_density: float = 18.0
+    primary_density_km2: float = 445.0
     density_decay_rate: float = 0.20
     center_strength_decay: float = 0.6
-    block_area_acres: float = 1.0
+    block_size_meters: float = 100.0
     persons_per_unit: Union[float, Callable[[int, Optional[float]], float]] = 2.5
     units_noise: Optional[Union[float, Callable[[int], float]]] = None
     min_center_separation_blocks: int = 5
+
+    @property
+    def block_area_km2(self) -> float:
+        """Calculate block area in km² from block size in meters"""
+        return (self.block_size_meters / 1000.0) ** 2
 
 class PolycentricCity:
     """
@@ -94,7 +99,7 @@ class PolycentricCity:
         self.centers.append({
             'position': (center_row, center_col),
             'strength': 1.0,
-            'peak_density': self.config.primary_density
+            'peak_density': self.config.primary_density_km2
         })
 
         # Secondary centers in a circle around primary
@@ -115,7 +120,7 @@ class PolycentricCity:
                 self.centers.append({
                     'position': (row, col),
                     'strength': strength,
-                    'peak_density': self.config.primary_density * strength
+                    'peak_density': self.config.primary_density_km2 * strength
                 })
 
     def _place_clustered_centers(self):
@@ -136,7 +141,7 @@ class PolycentricCity:
             self.centers.append({
                 'position': (row, col),
                 'strength': strength,
-                'peak_density': self.config.primary_density * strength
+                'peak_density': self.config.primary_density_km2 * strength
             })
 
     def _place_random_centers(self):
@@ -158,7 +163,7 @@ class PolycentricCity:
                     self.centers.append({
                         'position': (row, col),
                         'strength': strength,
-                        'peak_density': self.config.primary_density * strength
+                        'peak_density': self.config.primary_density_km2 * strength
                     })
                     placed = True
 
@@ -195,7 +200,7 @@ class PolycentricCity:
                     block_density += contribution
 
                 # Convert density to housing units
-                base_units = int(block_density * self.config.block_area_acres)
+                base_units = int(block_density * self.config.block_area_km2)
 
                 # Apply noise to units if configured
                 noise_value = None
@@ -271,7 +276,7 @@ class PolycentricCity:
         for i, center in enumerate(self.centers):
             print(f"  Center {i+1}: Position {center['position']}, "
                   f"Strength {center['strength']:.2f}, "
-                  f"Peak Density {center['peak_density']:.1f} units/acre")
+                  f"Peak Density {center['peak_density']:.1f} units/km²")
 
         total_units = sum(block.units for block in self.grid.blocks)
         total_population = self.grid.total_population

@@ -52,21 +52,21 @@ def test_city_applies_density_constraints():
     config = CityConfig(
         width=10,
         height=10,
-        max_density_units_per_acre=20.0,
-        min_density_units_per_acre=5.0,
-        block_area_acres=2.0,
+        max_density_units_per_km2=494.0,
+        min_density_units_per_km2=123.5,
+        block_size_meters=100.0,
         random_seed=42
     )
     polycentric = PolycentricConfig(
         num_centers=2,
-        primary_density=100.0  # Intentionally high
+        primary_density_km2=2470.0  # Intentionally high
     )
 
     city = City(config=config, polycentric_config=polycentric)
     city.generate()
 
-    max_units = int(config.max_density_units_per_acre * config.block_area_acres)
-    min_units = int(config.min_density_units_per_acre * config.block_area_acres)
+    max_units = int(config.max_density_units_per_km2 * config.block_area_km2)
+    min_units = int(config.min_density_units_per_km2 * config.block_area_km2)
 
     for block in city.grid.blocks:
         assert block.units <= max_units
@@ -83,8 +83,8 @@ def test_city_properties():
 
     assert city.total_population == city.grid.total_population
     assert city.total_units == sum(b.units for b in city.grid.blocks)
-    assert city.total_area_acres == 5 * 5 * config.block_area_acres
-    assert city.average_density == city.total_units / city.total_area_acres
+    assert city.total_area_km2 == 5 * 5 * config.block_area_km2
+    assert city.average_density == city.total_units / city.total_area_km2
 
 
 def test_city_centers_placement():
@@ -107,7 +107,7 @@ def test_units_noise_float_scaling():
         units_noise=0.2,  # 20% proportional noise
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=1, primary_density=20.0)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=494.0)
 
     city = City(config=config, polycentric_config=polycentric)
     city.generate()
@@ -144,7 +144,7 @@ def test_units_noise_callable():
         units_noise=custom_noise,
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=1, primary_density=20.0)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=494.0)
 
     city = City(config=config, polycentric_config=polycentric)
     city.generate()
@@ -168,7 +168,7 @@ def test_persons_per_unit_callable():
         persons_per_unit=density_based_household,
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=1, primary_density=25.0)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=618.0)
 
     city = City(config=config, polycentric_config=polycentric)
     city.generate()
@@ -204,7 +204,7 @@ def test_combined_noise_and_callable_persons():
         persons_per_unit=adaptive_household,
         random_seed=42
     )
-    polycentric = PolycentricConfig(num_centers=2, primary_density=30.0)
+    polycentric = PolycentricConfig(num_centers=2, primary_density_km2=741.0)
 
     city = City(config=config, polycentric_config=polycentric)
     city.generate()
@@ -313,7 +313,7 @@ def test_center_zoning():
 def test_density_zoning_levels():
     """Test that density levels are assigned based on unit counts."""
     config = CityConfig(width=30, height=30, random_seed=42)
-    polycentric = PolycentricConfig(num_centers=2, primary_density=30.0)
+    polycentric = PolycentricConfig(num_centers=2, primary_density_km2=741.0)
     zoning_config = ZoningConfig(
         enabled=True,
         low_density_threshold=20,
@@ -348,6 +348,133 @@ def test_zoning_disabled():
     assert city._generated == True
 
 
+def test_auto_upzone_density():
+    """Test automatic density upzoning based on neighbors."""
+    config = CityConfig(width=10, height=10, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    zoning_config = ZoningConfig(
+        enabled=True,
+        auto_upzone_enabled=True,
+        auto_upzone_density_threshold=3,
+        auto_upzone_include_diagonals=True,
+        auto_upzone_iterations=1
+    )
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Count density levels before and after
+    # With upzoning enabled, there should be more medium/high density blocks
+    # near the center compared to without upzoning
+    high_density_blocks = [b for b in city.grid.blocks
+                           if b.zoning and b.zoning.max_density == Density.HIGH]
+
+    # Should have some high density blocks due to the center and upzoning
+    assert len(high_density_blocks) > 0, "Should have high density blocks with upzoning"
+
+
+def test_auto_upzone_uses():
+    """Test automatic use upzoning based on neighbors."""
+    config = CityConfig(width=15, height=15, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=2, primary_density_km2=741.0)
+    zoning_config = ZoningConfig(
+        enabled=True,
+        auto_upzone_enabled=True,
+        auto_upzone_use_threshold=3,
+        auto_upzone_include_diagonals=True,
+        commercial_weight=0.5,
+        office_weight=0.5
+    )
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Count blocks with commercial and office uses
+    commercial_blocks = [b for b in city.grid.blocks
+                         if b.zoning and Use.COMMERCIAL in b.zoning.allowed_uses]
+    office_blocks = [b for b in city.grid.blocks
+                     if b.zoning and Use.OFFICE in b.zoning.allowed_uses]
+
+    # With upzoning, commercial and office uses should spread from centers
+    assert len(commercial_blocks) > 0, "Should have commercial blocks"
+    assert len(office_blocks) > 0, "Should have office blocks"
+
+
+def test_auto_upzone_no_diagonals():
+    """Test upzoning with only cardinal neighbors (no diagonals)."""
+    config = CityConfig(width=10, height=10, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    zoning_config = ZoningConfig(
+        enabled=True,
+        auto_upzone_enabled=True,
+        auto_upzone_density_threshold=2,  # Lower threshold since only 4 neighbors
+        auto_upzone_include_diagonals=False,  # Only cardinal directions
+        auto_upzone_iterations=1
+    )
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Should still upzone, but pattern will be different (more cross-shaped)
+    medium_or_high = [b for b in city.grid.blocks
+                      if b.zoning and b.zoning.max_density in [Density.MEDIUM, Density.HIGH]]
+
+    assert len(medium_or_high) > 0, "Should have upzoned blocks even without diagonals"
+
+
+def test_auto_upzone_iterations():
+    """Test multiple upzoning iterations spread upzoning further."""
+    config = CityConfig(width=15, height=15, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+
+    # First, test with 1 iteration
+    zoning_config_1 = ZoningConfig(
+        enabled=True,
+        auto_upzone_enabled=True,
+        auto_upzone_density_threshold=3,
+        auto_upzone_iterations=1
+    )
+    city_1 = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config_1)
+    city_1.generate()
+
+    # Count high density blocks
+    high_1 = len([b for b in city_1.grid.blocks
+                  if b.zoning and b.zoning.max_density == Density.HIGH])
+
+    # Now test with 3 iterations
+    zoning_config_3 = ZoningConfig(
+        enabled=True,
+        auto_upzone_enabled=True,
+        auto_upzone_density_threshold=3,
+        auto_upzone_iterations=3
+    )
+    city_3 = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config_3)
+    city_3.generate()
+
+    # Count high density blocks
+    high_3 = len([b for b in city_3.grid.blocks
+                  if b.zoning and b.zoning.max_density == Density.HIGH])
+
+    # More iterations should spread high density further
+    assert high_3 >= high_1, "More iterations should result in equal or more high-density blocks"
+
+
+def test_auto_upzone_disabled():
+    """Test that auto-upzoning can be disabled."""
+    config = CityConfig(width=10, height=10, random_seed=42)
+    polycentric = PolycentricConfig(num_centers=1, primary_density_km2=741.0)
+    zoning_config = ZoningConfig(
+        enabled=True,
+        auto_upzone_enabled=False  # Disabled
+    )
+
+    city = City(config=config, polycentric_config=polycentric, zoning_config=zoning_config)
+    city.generate()
+
+    # Should generate successfully
+    assert city._generated == True
+
+
 if __name__ == '__main__':
     tests = [
         test_grid_get_block,
@@ -366,7 +493,12 @@ if __name__ == '__main__':
         test_zoning_generation,
         test_center_zoning,
         test_density_zoning_levels,
-        test_zoning_disabled
+        test_zoning_disabled,
+        test_auto_upzone_density,
+        test_auto_upzone_uses,
+        test_auto_upzone_no_diagonals,
+        test_auto_upzone_iterations,
+        test_auto_upzone_disabled
     ]
 
     for test in tests:

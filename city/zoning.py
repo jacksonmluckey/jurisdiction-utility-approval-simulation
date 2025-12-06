@@ -61,6 +61,16 @@ class ZoningConfig:
         office_weight: Weight for office zoning in high-density areas (default: 0.5)
         commercial_weight: Weight for commercial zoning (default: 0.3)
         center_radius_blocks: Radius around centers to zone for all uses (default: 3)
+        auto_upzone_enabled: Whether to apply automatic upzoning based on neighbors (default: False)
+        auto_upzone_density_threshold: Number of adjacent blocks with higher density needed
+            to upzone this block's density (default: 3)
+        auto_upzone_use_threshold: Number of adjacent blocks with an additional use needed
+            to add that use to this block (default: 3)
+        auto_upzone_include_diagonals: Whether to include diagonal/corner neighbors when
+            counting adjacent blocks (default: True). If True, blocks have 8 neighbors;
+            if False, only 4 (cardinal directions).
+        auto_upzone_iterations: Number of upzoning passes to apply. Higher values allow
+            upzoning to spread further from high-density areas (default: 1)
     """
     enabled: bool = True
     low_density_threshold: int = 30
@@ -69,6 +79,177 @@ class ZoningConfig:
     office_weight: float = 0.5
     commercial_weight: float = 0.3
     center_radius_blocks: int = 3
+    auto_upzone_enabled: bool = False
+    auto_upzone_density_threshold: int = 3
+    auto_upzone_use_threshold: int = 3
+    auto_upzone_include_diagonals: bool = True
+    auto_upzone_iterations: int = 1
+
+
+def _get_neighbors(grid, block, include_diagonals: bool = True) -> List:
+    """
+    Get neighboring blocks for a given block.
+
+    Args:
+        grid: Grid object containing blocks
+        block: The block to get neighbors for
+        include_diagonals: If True, include diagonal neighbors (8 total);
+                          if False, only cardinal directions (4 total)
+
+    Returns:
+        List of neighboring Block objects
+    """
+    neighbors = []
+
+    # Cardinal directions (N, S, E, W)
+    offsets = [
+        (-1, 0),  # North
+        (1, 0),   # South
+        (0, 1),   # East
+        (0, -1),  # West
+    ]
+
+    # Add diagonal directions if requested
+    if include_diagonals:
+        offsets.extend([
+            (-1, -1),  # Northwest
+            (-1, 1),   # Northeast
+            (1, -1),   # Southwest
+            (1, 1),    # Southeast
+        ])
+
+    for dy, dx in offsets:
+        neighbor = grid.get_block(block.x + dx, block.y + dy)
+        if neighbor is not None:
+            neighbors.append(neighbor)
+
+    return neighbors
+
+
+def _apply_auto_upzone_density(grid, config: ZoningConfig) -> int:
+    """
+    Apply automatic density upzoning based on neighboring blocks.
+
+    Args:
+        grid: Grid object containing blocks
+        config: ZoningConfig with upzoning parameters
+
+    Returns:
+        Number of blocks that were upzoned
+    """
+    upzoned_count = 0
+    blocks_to_upzone = []  # Store changes to apply after analysis
+
+    for block in grid.blocks:
+        # Skip if no zoning or is a park
+        if not hasattr(block, 'zoning') or block.zoning is None:
+            continue
+        if hasattr(block, 'is_park') and block.is_park:
+            continue
+
+        current_density = block.zoning.max_density
+
+        # Can't upzone HIGH density
+        if current_density == Density.HIGH:
+            continue
+
+        # Get neighbors
+        neighbors = _get_neighbors(grid, block, config.auto_upzone_include_diagonals)
+
+        # Count neighbors with higher density
+        higher_density_count = 0
+        target_density = None
+
+        for neighbor in neighbors:
+            if not hasattr(neighbor, 'zoning') or neighbor.zoning is None:
+                continue
+
+            neighbor_density = neighbor.zoning.max_density
+
+            # Check if neighbor has higher density
+            if neighbor_density.value > current_density.value:
+                higher_density_count += 1
+                # Track the target density (most common higher density)
+                if target_density is None or neighbor_density.value > target_density.value:
+                    target_density = neighbor_density
+
+        # Apply upzoning if threshold met
+        if higher_density_count >= config.auto_upzone_density_threshold and target_density:
+            # Upzone by one level, not necessarily to the highest neighbor
+            if current_density == Density.LOW:
+                new_density = Density.MEDIUM
+            elif current_density == Density.MEDIUM:
+                new_density = Density.HIGH
+            else:
+                new_density = current_density
+
+            if new_density != current_density:
+                blocks_to_upzone.append((block, new_density))
+
+    # Apply all upzoning changes
+    for block, new_density in blocks_to_upzone:
+        block.zoning.max_density = new_density
+        upzoned_count += 1
+
+    return upzoned_count
+
+
+def _apply_auto_upzone_uses(grid, config: ZoningConfig) -> int:
+    """
+    Apply automatic use upzoning based on neighboring blocks.
+
+    Args:
+        grid: Grid object containing blocks
+        config: ZoningConfig with upzoning parameters
+
+    Returns:
+        Number of blocks that had uses added
+    """
+    upzoned_count = 0
+    blocks_to_upzone = []  # Store changes to apply after analysis
+
+    for block in grid.blocks:
+        # Skip if no zoning or is a park
+        if not hasattr(block, 'zoning') or block.zoning is None:
+            continue
+        if hasattr(block, 'is_park') and block.is_park:
+            continue
+
+        current_uses = block.zoning.allowed_uses
+
+        # Get neighbors
+        neighbors = _get_neighbors(grid, block, config.auto_upzone_include_diagonals)
+
+        # Count neighbors with each use
+        use_counts = {
+            Use.RESIDENTIAL: 0,
+            Use.OFFICE: 0,
+            Use.COMMERCIAL: 0
+        }
+
+        for neighbor in neighbors:
+            if not hasattr(neighbor, 'zoning') or neighbor.zoning is None:
+                continue
+
+            for use in neighbor.zoning.allowed_uses:
+                use_counts[use] += 1
+
+        # Check which uses to add
+        uses_to_add = set()
+        for use, count in use_counts.items():
+            # Only add if not already allowed and threshold met
+            if use not in current_uses and count >= config.auto_upzone_use_threshold:
+                uses_to_add.add(use)
+
+        if uses_to_add:
+            blocks_to_upzone.append((block, uses_to_add))
+
+    # Apply all upzoning changes
+    for block, new_uses in blocks_to_upzone:
+        block.zoning.allowed_uses.update(new_uses)
+        upzoned_count += 1
+
+    return upzoned_count
 
 
 def generate_zoning(grid, centers: List[dict], config: ZoningConfig) -> None:
@@ -133,6 +314,18 @@ def generate_zoning(grid, centers: List[dict], config: ZoningConfig) -> None:
             allowed_uses.add(Use.RESIDENTIAL)
 
         block.zoning = Zoning(allowed_uses=allowed_uses, max_density=density)
+
+    # Apply automatic upzoning if enabled
+    if config.auto_upzone_enabled:
+        for iteration in range(config.auto_upzone_iterations):
+            # Apply density upzoning
+            density_upzoned = _apply_auto_upzone_density(grid, config)
+            # Apply use upzoning
+            use_upzoned = _apply_auto_upzone_uses(grid, config)
+
+            # Stop if no changes in this iteration
+            if density_upzoned == 0 and use_upzoned == 0:
+                break
 
 
 def get_zoning_summary(grid) -> dict:
