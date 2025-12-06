@@ -229,6 +229,322 @@ def generate_city_centers(
     return centers
 
 
+def generate_transportation_corridors(
+    centers: List[CityCenter],
+    transport_configs: List,
+    grid_rows: int,
+    grid_cols: int
+) -> List[TransportationCorridor]:
+    """
+    Generate transportation corridors from configuration.
+
+    Args:
+        centers: List of CityCenter objects
+        transport_configs: List of TransportationConfig objects
+        grid_rows: Grid height
+        grid_cols: Grid width
+
+    Returns:
+        List of TransportationCorridor objects
+    """
+    corridors = []
+
+    # Import here to avoid circular dependency
+    from .transportation_corridor import CorridorType
+
+    # Convert centers to dict format for compatibility with corridor generation logic
+    center_positions = [(c.position[0], c.position[1]) for c in centers]
+
+    for config in transport_configs:
+        # Generate blocks for this corridor configuration
+        corridor_blocks = _generate_corridor_blocks(
+            config, center_positions, grid_rows, grid_cols
+        )
+
+        # Create TransportationCorridor object
+        # Get multipliers from config, defaulting to 1.0 if not specified
+        housing_mult = getattr(config, 'housing_multiplier', getattr(config, 'density_multiplier', 1.0))
+        office_mult = getattr(config, 'office_multiplier', 1.0)
+        shop_mult = getattr(config, 'shop_multiplier', 1.0)
+
+        corridor = TransportationCorridor(
+            corridor_type=config.corridor_type.value if hasattr(config.corridor_type, 'value') else str(config.corridor_type),
+            blocks=corridor_blocks,
+            housing_multiplier=housing_mult,
+            office_multiplier=office_mult,
+            shop_multiplier=shop_mult,
+            width_blocks=config.corridor_width_blocks
+        )
+        corridors.append(corridor)
+
+    return corridors
+
+
+def _generate_corridor_blocks(
+    config,
+    center_positions: List[Tuple[int, int]],
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Generate corridor blocks for a single configuration."""
+    from .transportation_corridor import CorridorType
+
+    blocks = set()
+
+    if config.corridor_type == CorridorType.RADIAL:
+        blocks = _generate_radial_blocks(
+            center_positions, config, grid_rows, grid_cols
+        )
+    elif config.corridor_type == CorridorType.INTER_CENTER:
+        blocks = _generate_inter_center_blocks(
+            center_positions, config, grid_rows, grid_cols
+        )
+    elif config.corridor_type == CorridorType.RING:
+        blocks = _generate_ring_blocks(
+            center_positions, config, grid_rows, grid_cols
+        )
+    elif config.corridor_type == CorridorType.GRID:
+        blocks = _generate_grid_blocks(
+            config, grid_rows, grid_cols
+        )
+
+    if config.include_ring_roads and center_positions:
+        ring_blocks = _add_ring_at_radius(
+            center_positions[0],
+            config.ring_road_radius_blocks,
+            config.corridor_width_blocks,
+            grid_rows,
+            grid_cols
+        )
+        blocks.update(ring_blocks)
+
+    return blocks
+
+
+def _generate_radial_blocks(
+    center_positions: List[Tuple[int, int]],
+    config,
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Generate radial corridor blocks from primary center."""
+    if not center_positions:
+        return set()
+
+    blocks = set()
+    primary_center = center_positions[0]
+    angles = np.linspace(0, 2*np.pi, config.radial_corridors_count, endpoint=False)
+    max_radius = max(grid_rows, grid_cols)
+
+    for angle in angles:
+        for r in range(max_radius):
+            row = int(primary_center[0] + r * np.sin(angle))
+            col = int(primary_center[1] + r * np.cos(angle))
+
+            if 0 <= row < grid_rows and 0 <= col < grid_cols:
+                blocks.update(_add_block_with_width(
+                    row, col, config.corridor_width_blocks, grid_rows, grid_cols
+                ))
+
+    return blocks
+
+
+def _generate_inter_center_blocks(
+    center_positions: List[Tuple[int, int]],
+    config,
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Generate corridors connecting centers."""
+    if len(center_positions) < 2:
+        return set()
+
+    blocks = set()
+
+    if config.connect_all_centers:
+        # Connect all pairs of centers
+        for i in range(len(center_positions)):
+            for j in range(i + 1, len(center_positions)):
+                blocks.update(_connect_two_points(
+                    center_positions[i],
+                    center_positions[j],
+                    config.corridor_width_blocks,
+                    config.max_corridor_distance,
+                    grid_rows,
+                    grid_cols
+                ))
+    else:
+        # Connect each center to nearest neighbor
+        for i, center in enumerate(center_positions):
+            if i == 0:
+                continue
+            # Find nearest center
+            distances = [
+                np.sqrt((center[0] - other[0])**2 + (center[1] - other[1])**2)
+                for j, other in enumerate(center_positions) if j != i
+            ]
+            nearest_idx = np.argmin(distances)
+            if nearest_idx >= i:
+                nearest_idx += 1
+            blocks.update(_connect_two_points(
+                center,
+                center_positions[nearest_idx],
+                config.corridor_width_blocks,
+                config.max_corridor_distance,
+                grid_rows,
+                grid_cols
+            ))
+
+    return blocks
+
+
+def _generate_ring_blocks(
+    center_positions: List[Tuple[int, int]],
+    config,
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Generate concentric ring corridors."""
+    if not center_positions:
+        return set()
+
+    blocks = set()
+    primary_center = center_positions[0]
+
+    # Multiple rings at different radii
+    radii = [config.ring_road_radius_blocks * (i + 1)
+            for i in range(min(grid_rows, grid_cols) //
+                          (2 * config.ring_road_radius_blocks))]
+
+    for radius in radii:
+        blocks.update(_add_ring_at_radius(
+            primary_center, radius, config.corridor_width_blocks, grid_rows, grid_cols
+        ))
+
+    return blocks
+
+
+def _generate_grid_blocks(
+    config,
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Generate orthogonal grid corridors."""
+    blocks = set()
+
+    # Vertical corridors
+    vertical_spacing = config.grid_spacing_blocks if config.grid_spacing_blocks else max(5, grid_cols // 6)
+    for col in range(0, grid_cols, vertical_spacing):
+        for row in range(grid_rows):
+            blocks.update(_add_block_with_width(
+                row, col, config.corridor_width_blocks, grid_rows, grid_cols
+            ))
+
+    # Horizontal corridors
+    horizontal_spacing = config.grid_spacing_blocks if config.grid_spacing_blocks else max(5, grid_rows // 6)
+    for row in range(0, grid_rows, horizontal_spacing):
+        for col in range(grid_cols):
+            blocks.update(_add_block_with_width(
+                row, col, config.corridor_width_blocks, grid_rows, grid_cols
+            ))
+
+    return blocks
+
+
+def _add_ring_at_radius(
+    center: Tuple[int, int],
+    radius: int,
+    width: int,
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Add a circular corridor at given radius from center."""
+    blocks = set()
+    center_row, center_col = center
+
+    # Sample points around circle
+    num_points = int(2 * np.pi * radius * 2)
+    angles = np.linspace(0, 2*np.pi, num_points)
+
+    for angle in angles:
+        row = int(center_row + radius * np.sin(angle))
+        col = int(center_col + radius * np.cos(angle))
+
+        if 0 <= row < grid_rows and 0 <= col < grid_cols:
+            blocks.update(_add_block_with_width(
+                row, col, width, grid_rows, grid_cols
+            ))
+
+    return blocks
+
+
+def _connect_two_points(
+    pos1: Tuple[int, int],
+    pos2: Tuple[int, int],
+    width: int,
+    max_distance: Optional[int],
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Connect two points using Bresenham's line algorithm."""
+    distance = np.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
+
+    if max_distance and distance > max_distance:
+        return set()
+
+    blocks = set()
+
+    # Bresenham's line algorithm
+    x0, y0 = pos1[1], pos1[0]  # col, row
+    x1, y1 = pos2[1], pos2[0]
+
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+
+    while True:
+        blocks.update(_add_block_with_width(
+            y0, x0, width, grid_rows, grid_cols
+        ))
+
+        if x0 == x1 and y0 == y1:
+            break
+
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x0 += sx
+        if e2 < dx:
+            err += dx
+            y0 += sy
+
+    return blocks
+
+
+def _add_block_with_width(
+    row: int,
+    col: int,
+    width: int,
+    grid_rows: int,
+    grid_cols: int
+) -> Set[Tuple[int, int]]:
+    """Add a block and its neighbors based on corridor width."""
+    blocks = set()
+    half_width = width // 2
+
+    for dr in range(-half_width, half_width + 1):
+        for dc in range(-half_width, half_width + 1):
+            new_row = row + dr
+            new_col = col + dc
+
+            if 0 <= new_row < grid_rows and 0 <= new_col < grid_cols:
+                blocks.add((new_row, new_col))
+
+    return blocks
+
+
 def generate_parks(
     park_configs: List,
     grid_rows: int,

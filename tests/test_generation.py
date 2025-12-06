@@ -7,9 +7,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from city.generation import (
     CityCenter, TransportationCorridor, Park,
-    generate_city_centers, generate_parks, place_points
+    generate_city_centers, generate_parks, place_points,
+    generate_transportation_corridors
 )
 from city import CityConfig, CityCentersConfig, ParkConfig
+from city.transportation_corridor import TransportationConfig, CorridorType
 
 
 def test_place_points_uniform():
@@ -141,6 +143,79 @@ def test_generate_parks():
         assert len(park.blocks) > 0
 
 
+def test_transportation_corridor_dataclass():
+    """Test TransportationCorridor dataclass creation."""
+    corridor = TransportationCorridor(
+        corridor_type="inter_center",
+        blocks={(5, 5), (5, 6), (5, 7)},
+        housing_multiplier=1.15,
+        office_multiplier=1.10,
+        shop_multiplier=1.20,
+        width_blocks=2
+    )
+    assert corridor.corridor_type == "inter_center"
+    assert len(corridor.blocks) == 3
+    assert corridor.housing_multiplier == 1.15
+    assert corridor.office_multiplier == 1.10
+    assert corridor.shop_multiplier == 1.20
+
+
+def test_generate_transportation_corridors():
+    """Test corridor generation from centers."""
+    centers = [
+        CityCenter((10, 10), 1.0, 2.0, 1.5, 1.3, 0.2),
+        CityCenter((15, 15), 0.6, 1.5, 1.2, 1.1, 0.2)
+    ]
+
+    transport_config = TransportationConfig(
+        corridor_type=CorridorType.INTER_CENTER,
+        corridor_width_blocks=2,
+        density_multiplier=1.15,
+        connect_all_centers=True
+    )
+
+    corridors = generate_transportation_corridors(
+        centers, [transport_config], 30, 30
+    )
+
+    assert len(corridors) == 1
+    corridor = corridors[0]
+    assert isinstance(corridor, TransportationCorridor)
+    assert len(corridor.blocks) > 0
+    # Should have housing_multiplier from density_multiplier
+    assert corridor.housing_multiplier == 1.15
+    # Office and shop should default to 1.0
+    assert corridor.office_multiplier == 1.0
+    assert corridor.shop_multiplier == 1.0
+
+
+def test_generate_transportation_corridors_with_multipliers():
+    """Test corridor generation with office/shop multipliers."""
+    centers = [
+        CityCenter((10, 10), 1.0, 2.0, 1.5, 1.3, 0.2)
+    ]
+
+    transport_config = TransportationConfig(
+        corridor_type=CorridorType.RADIAL,
+        corridor_width_blocks=1,
+        density_multiplier=1.20,
+        radial_corridors_count=4
+    )
+    # Manually add office and shop multipliers
+    transport_config.office_multiplier = 1.15
+    transport_config.shop_multiplier = 1.25
+
+    corridors = generate_transportation_corridors(
+        centers, [transport_config], 30, 30
+    )
+
+    assert len(corridors) == 1
+    corridor = corridors[0]
+    assert corridor.housing_multiplier == 1.20
+    assert corridor.office_multiplier == 1.15
+    assert corridor.shop_multiplier == 1.25
+
+
 if __name__ == '__main__':
     tests = [
         test_place_points_uniform,
@@ -149,7 +224,10 @@ if __name__ == '__main__':
         test_generate_city_centers_multiplier_calculation,
         test_generate_city_centers_no_office_shop,
         test_park_dataclass,
-        test_generate_parks
+        test_generate_parks,
+        test_transportation_corridor_dataclass,
+        test_generate_transportation_corridors,
+        test_generate_transportation_corridors_with_multipliers
     ]
 
     for test in tests:
