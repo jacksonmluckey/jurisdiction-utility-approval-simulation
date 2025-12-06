@@ -42,9 +42,9 @@ class CityConfig:
         width: Grid width in blocks (default: 50)
         height: Grid height in blocks (default: 50)
         block_size_meters: Side length of each block in meters (default: 100.0)
-        max_density_units_per_km2: Maximum housing units per km² (default: 1235.0).
-            Typical ranges: 125-500 suburban, 500-1500 urban, 1500-3700+ high-density urban.
-        min_density_units_per_km2: Minimum housing units per km² (default: 12.5)
+        max_density_units_per_km2: Maximum housing units per km² (default: 12355.0).
+            Typical ranges: 1235-12355 suburban, 12355-37065 urban, 37065-91435+ high-density urban.
+        min_density_units_per_km2: Minimum housing units per km² (default: 124.0)
         persons_per_unit: Average household size or a function that takes (units, noise) and returns
             household size. Can be a float for constant value, or a callable for variable values
             based on block characteristics (default: 2.5)
@@ -55,8 +55,8 @@ class CityConfig:
             - Callable[[int], float]: Function that takes base_units and returns noise value to add
         random_seed: Random seed for reproducibility. Set to an integer for consistent
             results across runs (default: None)
-        max_office_density_per_km2: Maximum office units per km² (default: 741.0)
-        max_shop_density_per_km2: Maximum shop/retail units per km² (default: 494.0)
+        max_office_density_per_km2: Maximum office units per km² (default: 7413.0)
+        max_shop_density_per_km2: Maximum shop/retail units per km² (default: 4942.0)
         office_center_concentration: Exponential decay rate for offices from centers.
             Higher values = more concentrated at center (default: 0.15)
         shop_center_concentration: Exponential decay rate for shops from centers.
@@ -72,8 +72,8 @@ class CityConfig:
     block_size_meters: float = 100.0
 
     # Density constraints (units per km²)
-    max_density_units_per_km2: float = 1235.0
-    min_density_units_per_km2: float = 12.5
+    max_density_units_per_km2: float = 12355.0
+    min_density_units_per_km2: float = 124.0
 
     # Population parameters
     persons_per_unit: Union[float, Callable[[int, Optional[float]], float]] = 2.5
@@ -83,8 +83,8 @@ class CityConfig:
     random_seed: Optional[int] = None
 
     # Commercial density parameters (units per km²)
-    max_office_density_per_km2: float = 741.0
-    max_shop_density_per_km2: float = 494.0
+    max_office_density_per_km2: float = 7413.0
+    max_shop_density_per_km2: float = 4942.0
     office_center_concentration: float = 0.15
     shop_center_concentration: float = 0.10
     shop_corridor_multiplier: float = 1.3
@@ -108,8 +108,8 @@ class City:
     Basic Usage:
         >>> from city import City, CityConfig, PolycentricConfig
         >>>
-        >>> config = CityConfig(width=50, height=50, max_density_units_per_km2=1235.0)
-        >>> polycentric = PolycentricConfig(num_centers=3, primary_density_km2=618.0)
+        >>> config = CityConfig(width=50, height=50, max_density_units_per_km2=12355.0)
+        >>> polycentric = PolycentricConfig(num_centers=3, primary_density_km2=6178.0)
         >>>
         >>> city = City(config=config, polycentric_config=polycentric)
         >>> grid = city.generate()
@@ -153,12 +153,12 @@ class City:
         >>> urban = CityConfig(
         ...     width=80,
         ...     height=80,
-        ...     max_density_units_per_km2=2470.0,
+        ...     max_density_units_per_km2=24710.0,
         ...     persons_per_unit=2.0
         ... )
         >>> polycentric = PolycentricConfig(
         ...     num_centers=7,
-        ...     primary_density_km2=988.0,
+        ...     primary_density_km2=9884.0,
         ...     density_decay_rate=0.08
         ... )
         >>> city = City(config=urban, polycentric_config=polycentric)
@@ -265,7 +265,7 @@ class City:
 
     def _generate_uniform_density(self):
         """Generate uniform density across the city (fallback if no polycentric config)"""
-        default_density = 247.0  # units per km²
+        default_density = 2471.0  # units per km²
 
         for block in self.grid.blocks:
             base_units = int(default_density * self.config.block_area_km2)

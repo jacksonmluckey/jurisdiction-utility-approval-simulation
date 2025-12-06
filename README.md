@@ -61,17 +61,17 @@ config = CityConfig(
     width=50,
     height=50,
     block_size_meters=100.0,
-    max_density_units_per_km2=1235.0,
-    min_density_units_per_km2=12.5,
-    max_office_density_per_km2=741.0,
-    max_shop_density_per_km2=494.0,
+    max_density_units_per_km2=12355.0,
+    min_density_units_per_km2=124.0,
+    max_office_density_per_km2=7413.0,
+    max_shop_density_per_km2=4942.0,
     persons_per_unit=2.5
 )
 
 # Configure polycentric density pattern
 polycentric = PolycentricConfig(
     num_centers=3,
-    primary_density_km2=618.0,
+    primary_density_km2=6178.0,
     density_decay_rate=0.20
 )
 
@@ -107,13 +107,13 @@ city.visualize()
 - **Block Area**: Automatically calculated as km� from block size
   - 100m � 100m = 0.01 km�
 - **Density Units**: All density parameters are in units per km�
-  - Suburban: 125-500 units/km�
-  - Urban: 500-1500 units/km�
-  - High-Density Urban: 1500-3700+ units/km�
+  - Suburban: 1235-12355 units/km�
+  - Urban: 12355-37065 units/km�
+  - High-Density Urban: 37065-91435+ units/km�
 
 ### Commercial Density Parameters
-- `max_office_density_per_km2`: Maximum office units per km� (default: 741.0)
-- `max_shop_density_per_km2`: Maximum retail units per km� (default: 494.0)
+- `max_office_density_per_km2`: Maximum office units per km� (default: 7413.0)
+- `max_shop_density_per_km2`: Maximum retail units per km� (default: 4942.0)
 - `office_center_concentration`: Controls office concentration at centers (default: 0.15)
 - `shop_center_concentration`: Controls shop concentration at centers (default: 0.10)
 - `shop_corridor_multiplier`: Density boost for shops along transit corridors (default: 1.3)
@@ -193,15 +193,15 @@ urban = CityConfig(
     width=80,
     height=80,
     block_size_meters=100.0,
-    max_density_units_per_km2=2470.0,
-    max_office_density_per_km2=1482.0,
-    max_shop_density_per_km2=988.0,
+    max_density_units_per_km2=24710.0,
+    max_office_density_per_km2=14826.0,
+    max_shop_density_per_km2=9884.0,
     persons_per_unit=2.0
 )
 
 polycentric = PolycentricConfig(
     num_centers=7,
-    primary_density_km2=988.0,
+    primary_density_km2=9884.0,
     density_decay_rate=0.08
 )
 

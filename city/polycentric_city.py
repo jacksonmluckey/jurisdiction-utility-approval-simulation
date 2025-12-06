@@ -14,7 +14,7 @@ class PolycentricConfig:
         num_centers: Number of activity/employment centers (default: 3)
         center_distribution: Distribution pattern - "uniform" (evenly spaced),
             "clustered" (grouped together), or "random" (default: "uniform")
-        primary_density_km2: Peak density at primary center in units per km² (default: 445.0)
+        primary_density_km2: Peak density at primary center in units per km² (default: 4448.0)
         density_decay_rate: Rate of density decay from centers. Lower = flatter/polycentric,
             higher = steeper/monocentric. Typical: 0.05-0.10 (gradual), 0.10-0.20 (moderate),
             0.20-0.30 (steep) (default: 0.20)
@@ -33,7 +33,7 @@ class PolycentricConfig:
     """
     num_centers: int = 3
     center_distribution: str = "uniform"
-    primary_density_km2: float = 445.0
+    primary_density_km2: float = 4448.0
     density_decay_rate: float = 0.20
     center_strength_decay: float = 0.6
     block_size_meters: float = 100.0

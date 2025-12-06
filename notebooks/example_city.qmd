@@ -34,7 +34,7 @@ city_config = CityConfig(
     width=50,
     height=50,
     block_size_meters=100.0,
-    max_density_units_per_km2=12500.0,
+    max_density_units_per_km2=125000.0,
     min_density_units_per_km2=250.0,
     persons_per_unit=2.5
 )
@@ -43,7 +43,7 @@ city_config = CityConfig(
 polycentric_config = PolycentricConfig(
     num_centers=3,
     center_distribution="uniform",
-    primary_density_km2=25.0,
+    primary_density_km2=2500.0,
     density_decay_rate=0.15
 )
 
@@ -547,9 +547,10 @@ city_config_zoning = CityConfig(
 
 polycentric_zoning = PolycentricConfig(
     num_centers=3,
-    center_distribution="uniform",
+    center_distribution="clustered",
     primary_density_km2=32.0,
-    density_decay_rate=0.13
+    density_decay_rate=0.13,
+    min_center_separation_blocks=15,
 )
 
 city_zoning = City(
@@ -577,7 +578,7 @@ print("=" * 70)
 complete_config = CityConfig(
     width=200,
     height=200,
-    max_density_units_per_km2=37500.0,
+    max_density_units_per_km2=50000.0,
     units_noise=0.12,
     persons_per_unit=lambda units, noise: 2.8 if units < 35 else 2.0,
     random_seed=42
@@ -585,9 +586,10 @@ complete_config = CityConfig(
 
 complete_polycentric = PolycentricConfig(
     num_centers=6,
-    center_distribution="uniform",
-    primary_density_km2=50.0,
-    density_decay_rate=0.11
+    center_distribution="clustered",
+    primary_density_km2=40000.0,
+    density_decay_rate=0.11,
+    min_center_separation_blocks=15
 )
 
 inter_city_transit = TransportationConfig(
@@ -605,7 +607,7 @@ grid_transit = TransportationConfig(
 complete_parks = ParkConfig(
     num_parks=20,
     min_size_blocks=3,
-    max_size_blocks=16,
+    max_size_blocks=25,
     placement_strategy="dispersed"
 )
 
