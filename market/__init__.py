@@ -4,7 +4,10 @@ from .amenities import (
     exponential_decay,
     inverse_distance_decay,
     gaussian_decay,
-    count_nearby_amenities
+    count_nearby_amenities,
+    visualize_search_area,
+    visualize_amenity_counts_single_block,
+    visualize_amenity_counts_all_blocks
 )
 
 from .housing import (
@@ -26,6 +29,9 @@ __all__ = [
     'inverse_distance_decay',
     'gaussian_decay',
     'count_nearby_amenities',
+    'visualize_search_area',
+    'visualize_amenity_counts_single_block',
+    'visualize_amenity_counts_all_blocks',
     # Housing
     'HousingCharacteristics',
     'calculate_housing_price',

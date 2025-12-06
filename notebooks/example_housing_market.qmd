@@ -8,6 +8,10 @@ from city import (
     ZoningConfig,
     City
 )
+from market import (
+    visualize_amenity_counts_all_blocks,
+    inverse_distance_decay
+)
 ```
 
 ```{python}
@@ -57,16 +61,22 @@ complete_zoning = ZoningConfig(
     center_radius_blocks=3
 )
 
-complete_city = City(
+city = City(
     config=complete_config,
     polycentric_config=complete_polycentric,
     transport_configs=[inter_city_transit, grid_transit],
     park_config=complete_parks,
     zoning_config=complete_zoning
 )
-complete_city.generate()
-complete_city.summary()
+city.generate()
+```
 
-complete_city.visualize()
-complete_city.visualize_zoning()
+```{python}
+city.visualize()
+city.visualize_zoning()
+```
+
+```{python}
+for amenity in ['units', 'shops', 'offices', 'parks']:
+    visualize_amenity_counts_all_blocks(city.grid, amenity_type=amenity, decay_function=inverse_distance_decay)
 ```
