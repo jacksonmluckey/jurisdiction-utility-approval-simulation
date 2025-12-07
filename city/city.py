@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, List, Union, Callable
 from .grid import Grid
 from .city_centers import CityCentersConfig, place_points
-from .transportation_corridor import TransportationConfig, TransportationNetwork
+from .transportation_corridor import TransportationConfig
 from .zoning import ZoningConfig, generate_zoning, get_zoning_summary
 from .generation import (
     generate_city_centers,
@@ -318,32 +318,6 @@ class City:
             })
         return centers_dict
 
-    def _generate_centers_density(self):
-        """Generate density using city centers model by delegating to CityCenters"""
-        from .city_centers import CityCenters
-
-        # Update centers config with city parameters to ensure consistency
-        self.centers_config.block_size_meters = self.config.block_size_meters
-        self.centers_config.persons_per_unit = self.config.persons_per_unit
-        self.centers_config.units_noise = self.config.units_noise
-
-        # Create temporary CityCenters to handle density generation
-        # Don't pass transport_configs - we'll handle that separately in City
-        temp_city = CityCenters(
-            grid_rows=self.config.height,
-            grid_cols=self.config.width,
-            config=self.centers_config,
-            transport_configs=None
-        )
-        temp_city.generate()
-
-        # Copy results back to our grid
-        self.centers = temp_city.centers
-        for i, block in enumerate(self.grid.blocks):
-            temp_block = temp_city.grid.blocks[i]
-            block.units = temp_block.units
-            block.population = temp_block.population
-
     def _generate_uniform_density(self):
         """Generate uniform density across the city (fallback if no centers config)"""
         default_density = 2471.0  # units per km²
@@ -371,32 +345,6 @@ class City:
                 block.population = units * self.config.persons_per_unit(units, noise_value)
             else:
                 block.population = units * self.config.persons_per_unit
-
-    def _generate_transportation_network(self):
-        """Generate transportation corridors and apply density effects"""
-        self.transport_network = TransportationNetwork(
-            grid_rows=self.config.height,
-            grid_cols=self.config.width,
-            centers=self.centers,
-            configs=self.transport_configs
-        )
-        self.transport_network.generate_corridors()
-
-        # Apply corridor effects with max multiplier for overlapping corridors
-        for block in self.grid.blocks:
-            block_key = (block.y, block.x)
-            if block_key in self.transport_network.corridor_details:
-                corridor_info_list = self.transport_network.corridor_details[block_key]
-                max_multiplier = max(info['density_multiplier'] for info in corridor_info_list)
-                block.units = int(block.units * max_multiplier)
-
-                # Recalculate population based on new units if persons_per_unit is callable
-                if callable(self.config.persons_per_unit):
-                    # For transportation corridors, we don't have the original noise value,
-                    # so we pass None
-                    block.population = block.units * self.config.persons_per_unit(block.units, None)
-                else:
-                    block.population = block.population * max_multiplier
 
     def _apply_density_constraints(self):
         """Apply city-wide density constraints to all blocks"""
