@@ -110,56 +110,35 @@ class CityConfig:
 
 class City:
     """
-    Main city class that integrates grid, density patterns, and transportation.
+    City data structure containing grid, density patterns, and transportation.
 
-    This class provides a unified interface for creating simulated cities with:
+    This class holds the generated city data including:
     - Block-level spatial grid structure
-    - City center-based density patterns with multiple activity centers
-    - Transportation networks that boost density along corridors
-    - City-wide constraints and parameters
+    - City centers with density multipliers
+    - Transportation corridors
+    - Parks and zoning information
+
+    Use the generate_city() function to create and populate a City instance.
 
     Basic Usage:
-        >>> from city import City, CityConfig, CityCentersConfig
+        >>> from city import generate_city, CityConfig, CityCentersConfig
         >>>
         >>> config = CityConfig(width=50, height=50, max_density_units_per_km2=12355.0)
         >>> centers_config = CityCentersConfig(num_centers=3, primary_density_km2=6178.0)
         >>>
-        >>> city = City(config=config, centers_config=centers_config)
-        >>> grid = city.generate()
+        >>> city = generate_city(config=config, centers_config=centers_config)
         >>> city.summary()
         >>> city.visualize()
 
-    With Single Transportation Corridor:
-        >>> from city import TransportationConfig, CorridorType
+    With Transportation Corridors:
+        >>> from city import generate_city, TransportationConfig, CorridorType
         >>>
         >>> transport = TransportationConfig(
         ...     corridor_type=CorridorType.INTER_CENTER,
         ...     corridor_width_blocks=2,
         ...     density_multiplier=1.20
         ... )
-        >>> city = City(config, centers_config, transport_configs=[transport])
-        >>> city.generate()
-        >>> city.visualize()
-
-    With Multiple Transportation Corridors:
-        >>> from city import TransportationConfig, CorridorType
-        >>>
-        >>> # Wide highways connecting centers
-        >>> highways = TransportationConfig(
-        ...     corridor_type=CorridorType.INTER_CENTER,
-        ...     corridor_width_blocks=3,
-        ...     density_multiplier=1.10
-        ... )
-        >>>
-        >>> # Narrow transit lines in a grid pattern
-        >>> transit = TransportationConfig(
-        ...     corridor_type=CorridorType.GRID,
-        ...     corridor_width_blocks=1,
-        ...     density_multiplier=1.25
-        ... )
-        >>>
-        >>> city = City(config, centers_config, transport_configs=[highways, transit])
-        >>> city.generate()
+        >>> city = generate_city(config, centers_config, transport_configs=[transport])
         >>> city.visualize()
 
     High-Density Urban Example:
@@ -174,8 +153,7 @@ class City:
         ...     primary_density_km2=9884.0,
         ...     density_decay_rate=0.08
         ... )
-        >>> city = City(config=urban, centers_config=centers)
-        >>> city.generate()
+        >>> city = generate_city(config=urban, centers_config=centers)
     """
 
     def __init__(self,
@@ -224,299 +202,6 @@ class City:
         # Track if city has been generated
         self._generated = False
 
-    def generate(self) -> Grid:
-        """
-        Generate the city with all configured features.
-
-        Returns:
-            Grid object with populated blocks
-        """
-        # Generate city components as objects (don't modify grid yet)
-        if self.centers_config:
-            self.centers = generate_city_centers(
-                self.centers_config,
-                self.config,
-                self.config.height,
-                self.config.width
-            )
-        else:
-            # No centers - will use uniform density
-            self.centers = []
-
-        # Generate transportation corridors (if configured)
-        if self.transport_configs and self.centers:
-            self.corridors = generate_transportation_corridors(
-                self.centers,
-                self.transport_configs,
-                self.config.height,
-                self.config.width
-            )
-        else:
-            self.corridors = []
-
-        # Generate parks (if configured)
-        if self.park_configs:
-            self.parks = gen_parks(
-                self.park_configs,
-                self.config.height,
-                self.config.width
-            )
-        else:
-            self.parks = []
-
-        # Create density map from all components
-        if self.centers:
-            self.density_map = create_density_map(
-                self.centers,
-                self.corridors,
-                self.parks,
-                self.config,
-                self.config.density_combination_method
-            )
-            # Apply density map to grid
-            self.density_map.apply_to_grid(self.grid, self.config)
-        else:
-            # No centers - use uniform density
-            self._generate_uniform_density()
-
-        # Mark park blocks on grid (BEFORE applying constraints so they can be skipped)
-        for park in self.parks:
-            for y, x in park.blocks:
-                block = self.grid.get_block(x, y)
-                if block:
-                    block.is_park = True
-
-        # Apply city-wide density constraints (will skip park blocks)
-        self._apply_density_constraints()
-
-        # Generate zoning (after parks, using centers and density info)
-        if self.zoning_config.enabled:
-            # Convert centers to dict format for compatibility with zoning
-            centers_dict = self._centers_to_dict()
-            generate_zoning(self.grid, centers_dict, self.zoning_config)
-
-        self._generated = True
-        return self.grid
-
-    def _centers_to_dict(self) -> List[dict]:
-        """Convert CityCenter objects to dict format for backwards compatibility."""
-        if not self.centers:
-            return []
-
-        # Check if already in dict format (from old code)
-        if self.centers and isinstance(self.centers[0], dict):
-            return self.centers
-
-        # Convert CityCenter objects to dicts
-        centers_dict = []
-        for center in self.centers:
-            centers_dict.append({
-                'position': center.position,
-                'strength': center.strength,
-                'peak_density': center.housing_peak_multiplier * self.config.base_housing_density_km2
-            })
-        return centers_dict
-
-    def _generate_uniform_density(self):
-        """Generate uniform density across the city (fallback if no centers config)"""
-        default_density = 2471.0  # units per km²
-
-        for block in self.grid.blocks:
-            base_units = int(default_density * self.config.block_area_km2)
-
-            # Apply noise to units if configured
-            noise_value = None
-            units = base_units
-            if self.config.units_noise is not None:
-                if callable(self.config.units_noise):
-                    # Function that takes base_units and returns noise value
-                    noise_value = self.config.units_noise(base_units)
-                else:
-                    # Float scaling factor: std_dev = units_noise * base_units
-                    std_dev = self.config.units_noise * base_units
-                    noise_value = np.random.normal(0, std_dev)
-                units = max(0, int(base_units + noise_value))
-
-            block.units = units
-
-            # Calculate population based on whether persons_per_unit is callable
-            if callable(self.config.persons_per_unit):
-                block.population = units * self.config.persons_per_unit(units, noise_value)
-            else:
-                block.population = units * self.config.persons_per_unit
-
-    def _apply_density_constraints(self):
-        """Apply city-wide density constraints to all blocks"""
-        max_units_per_block = int(self.config.max_density_units_per_km2 *
-                                   self.config.block_area_km2)
-        min_units_per_block = int(self.config.min_density_units_per_km2 *
-                                   self.config.block_area_km2)
-
-        for block in self.grid.blocks:
-            # Skip park blocks
-            if hasattr(block, 'is_park') and block.is_park:
-                continue
-
-            # Apply maximum density constraint
-            if block.units > max_units_per_block:
-                block.units = max_units_per_block
-                # Recalculate population based on new units
-                if callable(self.config.persons_per_unit):
-                    block.population = block.units * self.config.persons_per_unit(block.units, None)
-                else:
-                    block.population = block.units * self.config.persons_per_unit
-
-            # Apply minimum density constraint
-            if block.units < min_units_per_block:
-                block.units = min_units_per_block
-                # Recalculate population based on new units
-                if callable(self.config.persons_per_unit):
-                    block.population = block.units * self.config.persons_per_unit(block.units, None)
-                else:
-                    block.population = block.units * self.config.persons_per_unit
-
-    def _generate_parks(self):
-        """Generate parks throughout the city"""
-        # Process each park configuration
-        for park_config in self.park_configs:
-            if park_config.num_parks == 0:
-                continue
-
-            # Use common placement utility
-            park_positions = place_points(
-                num_points=park_config.num_parks,
-                grid_rows=self.config.height,
-                grid_cols=self.config.width,
-                placement_strategy=park_config.placement_strategy,
-                min_separation=park_config.min_separation_blocks
-            )
-
-            # For each park position, determine size and mark blocks
-            for park_center in park_positions:
-                size = np.random.randint(
-                    park_config.min_size_blocks,
-                    park_config.max_size_blocks + 1
-                )
-
-                park_blocks = self._get_park_blocks(park_center, size, park_config.shape)
-
-                # Mark blocks as parks
-                for block_pos in park_blocks:
-                    block = self.grid.get_block(block_pos[1], block_pos[0])
-                    if block:
-                        block.is_park = True
-                        block.units = 0
-                        block.population = 0
-
-                # Store park info
-                self.parks.append({
-                    'center': park_center,
-                    'size': size,
-                    'blocks': park_blocks
-                })
-
-    def _get_park_blocks(self, center: tuple, size: int, shape: str) -> List[tuple]:
-        """Get list of block positions for a park given its center and size"""
-        blocks = []
-        center_y, center_x = center
-
-        if shape == "circle":
-            # Circular park
-            radius = np.sqrt(size / np.pi)
-            for dy in range(-int(radius) - 1, int(radius) + 2):
-                for dx in range(-int(radius) - 1, int(radius) + 2):
-                    if dx*dx + dy*dy <= radius*radius:
-                        y = center_y + dy
-                        x = center_x + dx
-                        if 0 <= x < self.config.width and 0 <= y < self.config.height:
-                            blocks.append((y, x))
-                            if len(blocks) >= size:
-                                return blocks
-        else:
-            # Square park
-            side = int(np.sqrt(size))
-            for dy in range(-side // 2, side // 2 + 1):
-                for dx in range(-side // 2, side // 2 + 1):
-                    y = center_y + dy
-                    x = center_x + dx
-                    if 0 <= x < self.config.width and 0 <= y < self.config.height:
-                        blocks.append((y, x))
-                        if len(blocks) >= size:
-                            return blocks
-
-        return blocks
-
-    def _generate_offices(self):
-        """Generate office units concentrated at city centers"""
-        from .zoning import Use
-
-        if not self.centers:
-            return
-
-        max_offices_per_block = int(self.config.max_density_offices_per_km2 *
-                                     self.config.block_area_km2)
-
-        for block in self.grid.blocks:
-            # Skip parks
-            if block.is_park:
-                continue
-
-            # Check if office use is allowed by zoning
-            if block.zoning and not block.zoning.allows_use(Use.OFFICE):
-                continue
-
-            # Calculate office density based on distance to nearest center
-            min_distance = float('inf')
-            for center in self.centers:
-                center_y, center_x = center['position']
-                distance = np.sqrt((block.x - center_x)**2 + (block.y - center_y)**2)
-                min_distance = min(min_distance, distance)
-
-            # Exponential decay from center
-            office_density_factor = np.exp(-self.config.office_center_concentration * min_distance)
-
-            # Calculate offices
-            offices = int(max_offices_per_block * office_density_factor)
-            block.offices = max(0, offices)
-
-    def _generate_shops(self):
-        """Generate shop/retail units concentrated at centers and along corridors"""
-        from .zoning import Use
-
-        if not self.centers:
-            return
-
-        max_shops_per_block = int(self.config.max_density_shops_per_km2 *
-                                   self.config.block_area_km2)
-
-        for block in self.grid.blocks:
-            # Skip parks
-            if block.is_park:
-                continue
-
-            # Check if commercial use is allowed by zoning
-            if block.zoning and not block.zoning.allows_use(Use.COMMERCIAL):
-                continue
-
-            # Calculate shop density based on distance to nearest center
-            min_distance = float('inf')
-            for center in self.centers:
-                center_y, center_x = center['position']
-                distance = np.sqrt((block.x - center_x)**2 + (block.y - center_y)**2)
-                min_distance = min(min_distance, distance)
-
-            # Exponential decay from center
-            shop_density_factor = np.exp(-self.config.shop_center_concentration * min_distance)
-
-            # Apply corridor multiplier if on a corridor
-            on_corridor = any((block.y, block.x) in corridor.blocks for corridor in self.corridors)
-            if on_corridor:
-                shop_density_factor *= self.config.shop_corridor_multiplier
-
-            # Calculate shops
-            shops = int(max_shops_per_block * shop_density_factor)
-            block.shops = max(0, shops)
-
     def visualize(self, save_path: Optional[str] = None, show: bool = True):
         """
         Visualize the city.
@@ -525,14 +210,11 @@ class City:
             save_path: Optional path to save the figure
             show: Whether to display the plot
         """
-        if not self._generated:
-            raise RuntimeError("City must be generated before visualization. Call generate() first.")
-
         if self.corridors:
             from .visualize import visualize_with_corridors
             visualize_with_corridors(
                 self.grid,
-                self._centers_to_dict(),
+                self.centers,
                 self.corridors,
                 save_path=save_path,
                 show=show
@@ -543,25 +225,16 @@ class City:
 
     def visualize_population(self, save_path: Optional[str] = None, show: bool = True):
         """Visualize only population distribution"""
-        if not self._generated:
-            raise RuntimeError("City must be generated before visualization. Call generate() first.")
-
         from .visualize import visualize_population
         visualize_population(self.grid, save_path=save_path, show=show)
 
     def visualize_units(self, save_path: Optional[str] = None, show: bool = True):
         """Visualize only housing units distribution"""
-        if not self._generated:
-            raise RuntimeError("City must be generated before visualization. Call generate() first.")
-
         from .visualize import visualize_units
         visualize_units(self.grid, save_path=save_path, show=show)
 
     def visualize_zoning(self, save_path: Optional[str] = None, show: bool = True):
         """Visualize zoning map showing density levels and allowed uses"""
-        if not self._generated:
-            raise RuntimeError("City must be generated before visualization. Call generate() first.")
-
         if not self.zoning_config.enabled:
             print("Warning: Zoning is not enabled for this city.")
             return
@@ -571,8 +244,6 @@ class City:
 
     def summary(self):
         """Print summary statistics about the city"""
-        if not self._generated:
-            raise RuntimeError("City must be generated before viewing summary. Call generate() first.")
 
         print(f"{'='*60}")
         print(f"CITY SUMMARY")
@@ -679,5 +350,12 @@ class City:
         return self.total_units / self.total_area_km2 if self.total_area_km2 > 0 else 0
 
     def get_center_info(self) -> List[dict]:
-        """Get information about placed centers"""
-        return self._centers_to_dict()
+        """Get information about placed centers as dictionaries"""
+        centers_dict = []
+        for center in self.centers:
+            centers_dict.append({
+                'position': center.position,
+                'strength': center.strength,
+                'peak_density': center.housing_peak_multiplier * self.config.base_housing_density_km2
+            })
+        return centers_dict

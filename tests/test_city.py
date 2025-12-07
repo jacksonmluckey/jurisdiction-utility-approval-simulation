@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from city import City, CityConfig, CityCentersConfig, ParkConfig, ZoningConfig, Use, Density, Grid, District, Block
+from city import generate_city, City, CityConfig, CityCentersConfig, ParkConfig, ZoningConfig, Use, Density, Grid, District, Block
 
 
 def test_grid_get_block():
@@ -36,15 +36,12 @@ def test_district_aggregation():
     assert district.num_blocks == 2
 
 
-def test_city_requires_generate_before_viz():
-    """Test City raises error if visualize called before generate."""
-    city = City()
+def test_city_visualize():
+    """Test City visualize() works after generation."""
+    city = generate_city()
 
-    try:
-        city.visualize(show=False)
-        assert False, "Should raise RuntimeError"
-    except RuntimeError as e:
-        assert "generate()" in str(e)
+    # Should not raise any error
+    city.visualize(show=False)
 
 
 def test_city_applies_density_constraints():
@@ -62,8 +59,7 @@ def test_city_applies_density_constraints():
         primary_density_km2=2470.0  # Intentionally high
     )
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     max_units = int(config.max_density_units_per_km2 * config.block_area_km2)
     min_units = int(config.min_density_units_per_km2 * config.block_area_km2)
@@ -78,8 +74,7 @@ def test_city_properties():
     config = CityConfig(width=5, height=5, random_seed=42)
     centers = CityCentersConfig(num_centers=1)
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     assert city.total_population == city.grid.total_population
     assert city.total_units == sum(b.units for b in city.grid.blocks)
@@ -96,13 +91,12 @@ def test_city_summary():
     transport = TransportationConfig(corridor_type=CorridorType.INTER_CENTER, corridor_width_blocks=2)
     parks = ParkConfig(num_parks=1)
 
-    city = City(
+    city = generate_city(
         config=config,
         centers_config=centers,
         transport_configs=[transport],
         park_configs=parks
     )
-    city.generate()
 
     # Should not raise any errors
     import io
@@ -130,8 +124,7 @@ def test_city_centers_placement():
     config = CityConfig(width=20, height=20, random_seed=42)
     centers = CityCentersConfig(num_centers=3)
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     assert len(city.centers) == 3
     assert len(city.get_center_info()) == 3
@@ -147,8 +140,7 @@ def test_units_noise_float_scaling():
     )
     centers = CityCentersConfig(num_centers=1, primary_density_km2=494.0)
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     # With noise, units should vary from deterministic baseline
     # Generate without noise for comparison
@@ -158,8 +150,7 @@ def test_units_noise_float_scaling():
         units_noise=None,
         random_seed=42
     )
-    city_no_noise = City(config=config_no_noise, centers_config=centers)
-    city_no_noise.generate()
+    city_no_noise = generate_city(config=config_no_noise, centers_config=centers)
 
     # At least some blocks should differ (noise should have effect)
     units_with_noise = [b.units for b in city.grid.blocks]
@@ -184,8 +175,7 @@ def test_units_noise_callable():
     )
     centers = CityCentersConfig(num_centers=1, primary_density_km2=494.0)
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     # Check that generation succeeds and produces valid results
     assert city.total_units > 0
@@ -208,8 +198,7 @@ def test_persons_per_unit_callable():
     )
     centers = CityCentersConfig(num_centers=1, primary_density_km2=618.0)
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     # Check that household sizes vary as expected
     low_density_blocks = [b for b in city.grid.blocks if b.units < 30 and b.units > 0]
@@ -244,8 +233,7 @@ def test_combined_noise_and_callable_persons():
     )
     centers = CityCentersConfig(num_centers=2, primary_density_km2=741.0)
 
-    city = City(config=config, centers_config=centers)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers)
 
     # Verify generation succeeds and produces sensible results
     assert city.total_units > 0
@@ -265,8 +253,7 @@ def test_park_generation():
     centers = CityCentersConfig(num_centers=2)
     park_config = ParkConfig(num_parks=3, min_size_blocks=2, max_size_blocks=6)
 
-    city = City(config=config, centers_config=centers, park_configs=park_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, park_configs=park_config)
 
     # Check parks were created
     assert len(city.parks) == 3, f"Expected 3 parks, got {len(city.parks)}"
@@ -285,15 +272,14 @@ def test_single_park_config_normalization():
     park_config = ParkConfig(num_parks=2)
 
     # Pass a single ParkConfig object (not a list)
-    city = City(config=config, centers_config=centers, park_configs=park_config)
+    city = generate_city(config=config, centers_config=centers, park_configs=park_config)
 
     # Verify it's been normalized to a list internally
     assert isinstance(city.park_configs, list), "park_configs should be normalized to a list"
     assert len(city.park_configs) == 1, "Should have one ParkConfig in the list"
     assert isinstance(city.park_configs[0], ParkConfig), "List should contain ParkConfig object"
 
-    # Verify generation works without error
-    city.generate()
+    # Verify parks were generated correctly
     assert len(city.parks) == 2, f"Expected 2 parks, got {len(city.parks)}"
 
 
@@ -308,8 +294,7 @@ def test_park_size_constraints():
         placement_strategy="random"
     )
 
-    city = City(config=config, centers_config=centers, park_configs=park_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, park_configs=park_config)
 
     # Check each park size is within bounds
     for park in city.parks:
@@ -327,8 +312,7 @@ def test_dispersed_park_placement():
         placement_strategy="dispersed"
     )
 
-    city = City(config=config, centers_config=centers, park_configs=park_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, park_configs=park_config)
 
     assert len(city.parks) == 4, "Should create 4 parks with dispersed placement"
 
@@ -339,8 +323,7 @@ def test_zoning_generation():
     centers = CityCentersConfig(num_centers=2)
     zoning_config = ZoningConfig(enabled=True)
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # All blocks should have zoning
     zoned_blocks = [b for b in city.grid.blocks if hasattr(b, 'zoning') and b.zoning is not None]
@@ -353,8 +336,7 @@ def test_center_zoning():
     centers = CityCentersConfig(num_centers=2)
     zoning_config = ZoningConfig(enabled=True, center_radius_blocks=2)
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Check that at least some blocks near centers have all three uses
     multi_use_count = 0
@@ -377,8 +359,7 @@ def test_density_zoning_levels():
         medium_density_threshold=50
     )
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Check that blocks are zoned according to their unit counts
     low_density_blocks = [b for b in city.grid.blocks
@@ -397,8 +378,7 @@ def test_zoning_disabled():
     centers = CityCentersConfig(num_centers=1)
     zoning_config = ZoningConfig(enabled=False)
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Blocks may have None zoning or no zoning attribute when disabled
     # Just check that generation succeeds
@@ -417,8 +397,7 @@ def test_auto_upzone_density():
         auto_upzone_iterations=1
     )
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Count density levels before and after
     # With upzoning enabled, there should be more medium/high density blocks
@@ -443,8 +422,7 @@ def test_auto_upzone_uses():
         office_weight=0.5
     )
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Count blocks with commercial and office uses
     commercial_blocks = [b for b in city.grid.blocks
@@ -469,8 +447,7 @@ def test_auto_upzone_no_diagonals():
         auto_upzone_iterations=1
     )
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Should still upzone, but pattern will be different (more cross-shaped)
     medium_or_high = [b for b in city.grid.blocks
@@ -491,8 +468,7 @@ def test_auto_upzone_iterations():
         auto_upzone_density_threshold=3,
         auto_upzone_iterations=1
     )
-    city_1 = City(config=config, centers_config=centers, zoning_config=zoning_config_1)
-    city_1.generate()
+    city_1 = generate_city(config=config, centers_config=centers, zoning_config=zoning_config_1)
 
     # Count high density blocks
     high_1 = len([b for b in city_1.grid.blocks
@@ -505,8 +481,7 @@ def test_auto_upzone_iterations():
         auto_upzone_density_threshold=3,
         auto_upzone_iterations=3
     )
-    city_3 = City(config=config, centers_config=centers, zoning_config=zoning_config_3)
-    city_3.generate()
+    city_3 = generate_city(config=config, centers_config=centers, zoning_config=zoning_config_3)
 
     # Count high density blocks
     high_3 = len([b for b in city_3.grid.blocks
@@ -525,8 +500,7 @@ def test_auto_upzone_disabled():
         auto_upzone_enabled=False  # Disabled
     )
 
-    city = City(config=config, centers_config=centers, zoning_config=zoning_config)
-    city.generate()
+    city = generate_city(config=config, centers_config=centers, zoning_config=zoning_config)
 
     # Should generate successfully
     assert city._generated == True

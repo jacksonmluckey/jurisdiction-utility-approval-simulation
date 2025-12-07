@@ -5,6 +5,7 @@ from .city import City, CityConfig, ParkConfig
 from .city_centers import CityCenters, CityCentersConfig, place_points
 from .transportation_corridor import TransportationConfig, TransportationNetwork, CorridorType
 from .zoning import ZoningConfig, Zoning, Use, Density
+from .generate_city import generate_city
 from .visualize import (
     visualize_grid,
     visualize_population,
@@ -31,6 +32,7 @@ __all__ = [
     'Zoning',
     'Use',
     'Density',
+    'generate_city',
     'visualize_grid',
     'visualize_population',
     'visualize_units',

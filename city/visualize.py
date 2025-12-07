@@ -336,13 +336,8 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
 
     # Mark centers
     for i, center in enumerate(centers):
-        # Handle both dict format (legacy) and CityCenter objects
-        if isinstance(center, dict):
-            row, col = center['position']
-            strength = center['strength']
-        else:
-            row, col = center.position
-            strength = center.strength
+        row, col = center.position
+        strength = center.strength
         ax_pop.scatter(col, row, s=200 * strength, c='blue',
                       marker='*', edgecolors='white', linewidths=2,
                       label=f"Center {i+1}" if i < 3 else "")
@@ -360,13 +355,8 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
 
     # Mark centers
     for i, center in enumerate(centers):
-        # Handle both dict format (legacy) and CityCenter objects
-        if isinstance(center, dict):
-            row, col = center['position']
-            strength = center['strength']
-        else:
-            row, col = center.position
-            strength = center.strength
+        row, col = center.position
+        strength = center.strength
         ax_corr.scatter(col, row, s=200 * strength, c='red',
                        marker='*', edgecolors='white', linewidths=2)
 
@@ -387,13 +377,8 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
 
     # Mark centers
     for i, center in enumerate(centers):
-        # Handle both dict format (legacy) and CityCenter objects
-        if isinstance(center, dict):
-            row, col = center['position']
-            strength = center['strength']
-        else:
-            row, col = center.position
-            strength = center.strength
+        row, col = center.position
+        strength = center.strength
         ax_comb.scatter(col, row, s=200 * strength, c='blue',
                        marker='*', edgecolors='white', linewidths=2)
 
