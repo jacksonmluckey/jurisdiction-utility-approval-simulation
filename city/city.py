@@ -220,7 +220,6 @@ class City:
         self.corridors = []  # List[TransportationCorridor]
         self.parks = []  # Will be List[Park] after new generation
         self.density_map = None  # DensityMap object
-        self.transport_network = None  # Legacy, kept for compatibility
 
         # Track if city has been generated
         self._generated = False
@@ -510,7 +509,8 @@ class City:
             shop_density_factor = np.exp(-self.config.shop_center_concentration * min_distance)
 
             # Apply corridor multiplier if on a corridor
-            if self.transport_network and self.transport_network.is_on_corridor(block.y, block.x):
+            on_corridor = any((block.y, block.x) in corridor.blocks for corridor in self.corridors)
+            if on_corridor:
                 shop_density_factor *= self.config.shop_corridor_multiplier
 
             # Calculate shops
@@ -528,12 +528,12 @@ class City:
         if not self._generated:
             raise RuntimeError("City must be generated before visualization. Call generate() first.")
 
-        if self.corridors or self.transport_network:
+        if self.corridors:
             from .visualize import visualize_with_corridors
             visualize_with_corridors(
                 self.grid,
                 self._centers_to_dict(),
-                self.transport_network,  # Still pass for backwards compat
+                self.corridors,
                 save_path=save_path,
                 show=show
             )
@@ -585,9 +585,11 @@ class City:
         if self.centers:
             print(f"\nActivity Centers: {len(self.centers)}")
             for i, center in enumerate(self.centers):
-                print(f"  Center {i+1}: Position {center['position']}, "
-                      f"Strength {center['strength']:.2f}, "
-                      f"Peak Density {center['peak_density']:.1f} units/km²")
+                # Calculate peak housing density from multiplier
+                peak_housing_density = center.housing_peak_multiplier * self.config.base_housing_density_km2
+                print(f"  Center {i+1}: Position {center.position}, "
+                      f"Strength {center.strength:.2f}, "
+                      f"Peak Housing Density {peak_housing_density:.1f} units/km²")
 
         total_units = sum(block.units for block in self.grid.blocks)
         total_population = self.grid.total_population
@@ -610,23 +612,27 @@ class City:
         print(f"  Blocks with offices: {blocks_with_offices} ({blocks_with_offices/(self.config.width*self.config.height)*100:.1f}%)")
         print(f"  Blocks with shops: {blocks_with_shops} ({blocks_with_shops/(self.config.width*self.config.height)*100:.1f}%)")
 
-        if self.transport_network:
-            corridor_info = self.transport_network.get_corridor_info()
-            print(f"\nTransportation Network:")
-            print(f"  Number of corridor types: {corridor_info['num_corridor_configs']}")
-            print(f"  Total corridor blocks: {corridor_info['total_corridor_blocks']}")
-            print(f"  Coverage: {corridor_info['corridor_coverage_pct']:.1f}%")
-            print(f"  Average density boost: {corridor_info['average_density_boost']:.1f}%")
+        if self.corridors:
+            total_corridor_blocks = sum(len(corridor.blocks) for corridor in self.corridors)
+            corridor_coverage_pct = (total_corridor_blocks / (self.config.width * self.config.height)) * 100
 
-            # Show details for each corridor configuration
-            for config_info in corridor_info['corridor_configs']:
-                print(f"\n  Corridor {config_info['index'] + 1}:")
-                print(f"    Type: {config_info['type']}")
-                print(f"    Width: {config_info['width_blocks']} blocks")
-                print(f"    Density boost: {config_info['density_boost_pct']:.1f}%")
+            print(f"\nTransportation Network:")
+            print(f"  Number of corridors: {len(self.corridors)}")
+            print(f"  Total corridor blocks: {total_corridor_blocks}")
+            print(f"  Coverage: {corridor_coverage_pct:.1f}%")
+
+            # Show details for each corridor
+            for i, corridor in enumerate(self.corridors):
+                print(f"\n  Corridor {i + 1}:")
+                print(f"    Type: {corridor.corridor_type}")
+                print(f"    Width: {corridor.width_blocks} blocks")
+                print(f"    Blocks: {len(corridor.blocks)}")
+                print(f"    Housing multiplier: {corridor.housing_multiplier:.2f}")
+                print(f"    Office multiplier: {corridor.office_multiplier:.2f}")
+                print(f"    Shop multiplier: {corridor.shop_multiplier:.2f}")
 
         if self.parks:
-            total_park_blocks = sum(len(park['blocks']) for park in self.parks)
+            total_park_blocks = sum(len(park.blocks) for park in self.parks)
             park_coverage_pct = (total_park_blocks / (self.config.width * self.config.height)) * 100
             print(f"\nParks:")
             print(f"  Number of parks: {len(self.parks)}")

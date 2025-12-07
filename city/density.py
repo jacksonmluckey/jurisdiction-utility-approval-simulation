@@ -47,6 +47,7 @@ class DensityMap:
         Apply density map to grid blocks.
 
         Converts densities (units/km²) to actual unit counts and population.
+        Applies noise and persons_per_unit calculation.
         """
         for block in grid.blocks:
             # Get densities for this block
@@ -54,16 +55,35 @@ class DensityMap:
             office_density = self.office_densities[block.y, block.x]
             shop_density = self.shop_densities[block.y, block.x]
 
-            # Convert densities to units
-            block.units = int(housing_density * config.block_area_km2)
+            # Convert densities to base units
+            base_units = int(housing_density * config.block_area_km2)
+
+            # Apply noise to units if configured
+            noise_value = None
+            units = base_units
+            if config.units_noise is not None and base_units > 0:
+                if callable(config.units_noise):
+                    # Function that takes base_units and returns noise value
+                    noise_value = config.units_noise(base_units)
+                else:
+                    # Float scaling factor: std_dev = units_noise * base_units
+                    import numpy as np
+                    std_dev = config.units_noise * base_units
+                    if std_dev > 0:  # Only add noise if std_dev is positive
+                        noise_value = np.random.normal(0, std_dev)
+                    else:
+                        noise_value = 0
+                units = max(0, int(base_units + noise_value))
+
+            block.units = units
             block.offices = int(office_density * config.block_area_km2)
             block.shops = int(shop_density * config.block_area_km2)
 
             # Calculate population
             if callable(config.persons_per_unit):
-                block.population = block.units * config.persons_per_unit(block.units, None)
+                block.population = int(block.units * config.persons_per_unit(block.units, noise_value))
             else:
-                block.population = block.units * config.persons_per_unit
+                block.population = int(block.units * config.persons_per_unit)
 
 
 def calculate_center_multiplier_map(

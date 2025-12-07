@@ -1,0 +1,115 @@
+---
+title: "Example City Generation (200x200)"
+format:
+    html:
+        embed-resources: true
+---
+
+## Generate a 200x200 City
+
+This notebook demonstrates generating a 200x200 block city with multiple activity centers, transportation corridors, parks, and zoning.
+
+```{python}
+from city import (
+    City,
+    CityConfig,
+    CityCentersConfig,
+    TransportationConfig,
+    CorridorType,
+    ParkConfig,
+    ZoningConfig
+)
+```
+
+```{python}
+# Configure city properties
+config = CityConfig(
+    width=200,
+    height=200,
+    block_size_meters=100.0,
+    base_housing_density_km2=1500.0,
+    base_office_density_km2=750.0,
+    base_shop_density_km2=500.0,
+    max_density_units_per_km2=50000.0,
+    persons_per_unit=2.5,
+    units_noise=0.1,
+    random_seed=42
+)
+
+# Configure city centers
+centers_config = CityCentersConfig(
+    num_centers=5,
+    primary_density_km2=60000.0,
+    density_decay_rate=0.08,
+    min_center_separation_blocks=15
+)
+
+# Configure transportation corridors
+inter_center_transit = TransportationConfig(
+    corridor_type=CorridorType.INTER_CENTER,
+    corridor_width_blocks=2,
+    density_multiplier=1.2
+)
+
+grid_transit = TransportationConfig(
+    corridor_type=CorridorType.GRID,
+    corridor_width_blocks=1,
+    density_multiplier=1.1
+)
+
+# Configure parks
+parks_config = ParkConfig(
+    num_parks=15,
+    min_size_blocks=3,
+    max_size_blocks=20,
+    placement_strategy="dispersed"
+)
+
+# Configure zoning
+zoning_config = ZoningConfig(
+    enabled=True,
+    low_density_threshold=30,
+    medium_density_threshold=70,
+    center_radius_blocks=4
+)
+```
+
+```{python}
+# Create and generate the city
+city = City(
+    config=config,
+    centers_config=centers_config,
+    transport_configs=[inter_center_transit, grid_transit],
+    park_configs=parks_config,
+    zoning_config=zoning_config
+)
+
+city.generate()
+```
+
+```{python}
+# Display summary statistics
+city.summary()
+```
+
+## Visualizations
+
+```{python}
+# Population and housing distribution
+city.visualize()
+```
+
+```{python}
+# Zoning map
+city.visualize_zoning()
+```
+
+```{python}
+# Population density
+city.visualize_population()
+```
+
+```{python}
+# Housing units
+city.visualize_units()
+```

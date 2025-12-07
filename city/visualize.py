@@ -272,20 +272,20 @@ def print_grid_summary(city_or_grid: Union[Grid, 'City']) -> None:
 @overload
 def visualize_with_corridors(city_or_grid: Grid,
                              centers: List[dict],
-                             transport_network,
+                             corridors: List,
                              save_path: Optional[str] = None,
                              show: bool = True) -> None: ...
 
 @overload
 def visualize_with_corridors(city_or_grid: 'City',
                              centers: Optional[List[dict]] = None,
-                             transport_network = None,
+                             corridors: Optional[List] = None,
                              save_path: Optional[str] = None,
                              show: bool = True) -> None: ...
 
 def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
                              centers: Optional[List[dict]] = None,
-                             transport_network = None,
+                             corridors: Optional[List] = None,
                              save_path: Optional[str] = None,
                              show: bool = True) -> None:
     """
@@ -295,19 +295,19 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
         city_or_grid: Grid object or City object to visualize
         centers: List of center dictionaries with 'position' and 'strength' keys
                  (optional if City object is provided)
-        transport_network: TransportationNetwork object (optional if City object is provided)
+        corridors: List of TransportationCorridor objects (optional if City object is provided)
         save_path: Optional path to save the figure
         show: Whether to display the plot (default: True)
     """
-    # Extract grid, centers, and transport_network from City object if needed
+    # Extract grid, centers, and corridors from City object if needed
     grid = city_or_grid
     if hasattr(city_or_grid, 'grid'):
         city = city_or_grid
         grid = city.grid
         if centers is None:
             centers = city.centers
-        if transport_network is None:
-            transport_network = city.transport_network
+        if corridors is None:
+            corridors = city.corridors
 
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 
@@ -315,10 +315,14 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
     population_grid = np.zeros((grid.height, grid.width))
     corridor_grid = np.zeros((grid.height, grid.width))
 
+    # Mark corridor blocks
+    if corridors:
+        for corridor in corridors:
+            for y, x in corridor.blocks:
+                corridor_grid[y, x] = 1
+
     for block in grid.blocks:
         population_grid[block.y, block.x] = block.population
-        if transport_network and transport_network.is_on_corridor(block.y, block.x):
-            corridor_grid[block.y, block.x] = 1
 
     # --- Panel 1: Population Distribution ---
     ax_pop = axes[0]
@@ -332,8 +336,14 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
 
     # Mark centers
     for i, center in enumerate(centers):
-        row, col = center['position']
-        ax_pop.scatter(col, row, s=200 * center['strength'], c='blue',
+        # Handle both dict format (legacy) and CityCenter objects
+        if isinstance(center, dict):
+            row, col = center['position']
+            strength = center['strength']
+        else:
+            row, col = center.position
+            strength = center.strength
+        ax_pop.scatter(col, row, s=200 * strength, c='blue',
                       marker='*', edgecolors='white', linewidths=2,
                       label=f"Center {i+1}" if i < 3 else "")
 
@@ -350,8 +360,14 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
 
     # Mark centers
     for i, center in enumerate(centers):
-        row, col = center['position']
-        ax_corr.scatter(col, row, s=200 * center['strength'], c='red',
+        # Handle both dict format (legacy) and CityCenter objects
+        if isinstance(center, dict):
+            row, col = center['position']
+            strength = center['strength']
+        else:
+            row, col = center.position
+            strength = center.strength
+        ax_corr.scatter(col, row, s=200 * strength, c='red',
                        marker='*', edgecolors='white', linewidths=2)
 
     ax_corr.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
@@ -371,17 +387,25 @@ def visualize_with_corridors(city_or_grid: Union[Grid, 'City'],
 
     # Mark centers
     for i, center in enumerate(centers):
-        row, col = center['position']
-        ax_comb.scatter(col, row, s=200 * center['strength'], c='blue',
+        # Handle both dict format (legacy) and CityCenter objects
+        if isinstance(center, dict):
+            row, col = center['position']
+            strength = center['strength']
+        else:
+            row, col = center.position
+            strength = center.strength
+        ax_comb.scatter(col, row, s=200 * strength, c='blue',
                        marker='*', edgecolors='white', linewidths=2)
 
     ax_comb.set_xticks(np.arange(0, grid.width, max(1, grid.width // 10)))
     ax_comb.set_yticks(np.arange(0, grid.height, max(1, grid.height // 10)))
 
     # Overall title
-    corridor_info = transport_network.get_corridor_info() if transport_network else {}
-    corridor_type = corridor_info.get('corridor_type', 'N/A')
-    fig.suptitle(f'City with Transportation Corridors ({corridor_type})',
+    corridor_types = []
+    if corridors:
+        corridor_types = [c.corridor_type for c in corridors]
+    corridor_type_str = ', '.join(corridor_types) if corridor_types else 'N/A'
+    fig.suptitle(f'City with Transportation Corridors ({corridor_type_str})',
                  fontsize=16, fontweight='bold', y=0.98)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])

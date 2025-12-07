@@ -87,6 +87,44 @@ def test_city_properties():
     assert city.average_density == city.total_units / city.total_area_km2
 
 
+def test_city_summary():
+    """Test City.summary() works with new CityCenter object structure."""
+    from city import TransportationConfig, CorridorType
+
+    config = CityConfig(width=15, height=15, random_seed=42)
+    centers = CityCentersConfig(num_centers=2)
+    transport = TransportationConfig(corridor_type=CorridorType.INTER_CENTER, corridor_width_blocks=2)
+    parks = ParkConfig(num_parks=1)
+
+    city = City(
+        config=config,
+        centers_config=centers,
+        transport_configs=[transport],
+        park_configs=parks
+    )
+    city.generate()
+
+    # Should not raise any errors
+    import io
+    import sys
+
+    # Capture output to verify it runs without error
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+
+    try:
+        city.summary()
+        output = sys.stdout.getvalue()
+
+        # Verify key information is in the output
+        assert "CITY SUMMARY" in output
+        assert "Activity Centers:" in output
+        assert "Transportation Network:" in output
+        assert "Parks:" in output
+    finally:
+        sys.stdout = old_stdout
+
+
 def test_city_centers_placement():
     """Test City places correct number of centers."""
     config = CityConfig(width=20, height=20, random_seed=42)
@@ -238,6 +276,25 @@ def test_park_generation():
     assert len(park_blocks) > 0, "Should have at least some park blocks"
     assert all(b.units == 0 for b in park_blocks), "All park blocks should have 0 units"
     assert all(b.population == 0 for b in park_blocks), "All park blocks should have 0 population"
+
+
+def test_single_park_config_normalization():
+    """Test that a single ParkConfig object is properly normalized to a list."""
+    config = CityConfig(width=15, height=15, random_seed=42)
+    centers = CityCentersConfig(num_centers=1)
+    park_config = ParkConfig(num_parks=2)
+
+    # Pass a single ParkConfig object (not a list)
+    city = City(config=config, centers_config=centers, park_configs=park_config)
+
+    # Verify it's been normalized to a list internally
+    assert isinstance(city.park_configs, list), "park_configs should be normalized to a list"
+    assert len(city.park_configs) == 1, "Should have one ParkConfig in the list"
+    assert isinstance(city.park_configs[0], ParkConfig), "List should contain ParkConfig object"
+
+    # Verify generation works without error
+    city.generate()
+    assert len(city.parks) == 2, f"Expected 2 parks, got {len(city.parks)}"
 
 
 def test_park_size_constraints():
