@@ -7,6 +7,62 @@ if TYPE_CHECKING:
     from .city import City
 
 
+def _visualize_block_attribute(
+    grid: Grid,
+    attribute: str,
+    cmap: str,
+    label: str,
+    title: str,
+    save_path: Optional[str] = None,
+    show: bool = True
+) -> None:
+    """
+    Helper function to visualize a single block attribute across the grid.
+
+    Args:
+        grid: Grid object to visualize
+        attribute: Name of the block attribute to visualize (e.g., 'population', 'units')
+        cmap: Matplotlib colormap name
+        label: Label for the colorbar
+        title: Title for the plot
+        save_path: Optional path to save the figure
+        show: Whether to display the plot (default: True)
+    """
+    fig, ax = plt.subplots(figsize=(10, 9))
+
+    # Create 2D array for the attribute
+    data_grid = np.zeros((grid.height, grid.width))
+    for block in grid.blocks:
+        data_grid[block.y, block.x] = getattr(block, attribute)
+
+    im = ax.imshow(data_grid, cmap=cmap, origin='lower', interpolation='nearest')
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label(label, rotation=270, labelpad=25, fontsize=12, fontweight='bold')
+
+    ax.set_title(f'{title} ({grid.width}x{grid.height})',
+                 fontsize=14, fontweight='bold', pad=20)
+    ax.set_xlabel('X Coordinate', fontsize=11)
+    ax.set_ylabel('Y Coordinate', fontsize=11)
+
+    # Add grid lines
+    ax.set_xticks(np.arange(-0.5, grid.width, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, grid.height, 1), minor=True)
+    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
+    ax.set_xticks(np.arange(0, grid.width, 5))
+    ax.set_yticks(np.arange(0, grid.height, 5))
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to: {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
 @overload
 def visualize_grid(city_or_grid: Grid, save_path: Optional[str] = None, show: bool = True) -> None: ...
 
@@ -124,41 +180,15 @@ def visualize_population(city_or_grid: Union[Grid, 'City'], save_path: Optional[
     if hasattr(city_or_grid, 'grid'):
         grid = city_or_grid.grid
 
-    fig, ax = plt.subplots(figsize=(10, 9))
-
-    # Create 2D array for population
-    population_grid = np.zeros((grid.height, grid.width))
-    for block in grid.blocks:
-        population_grid[block.y, block.x] = block.population
-
-    im = ax.imshow(population_grid, cmap='YlOrRd', origin='lower',
-                   interpolation='nearest')
-    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label('Population', rotation=270, labelpad=25, fontsize=12,
-                   fontweight='bold')
-
-    ax.set_title(f'Population Distribution ({grid.width}x{grid.height})',
-                 fontsize=14, fontweight='bold', pad=20)
-    ax.set_xlabel('X Coordinate', fontsize=11)
-    ax.set_ylabel('Y Coordinate', fontsize=11)
-
-    # Add grid lines
-    ax.set_xticks(np.arange(-0.5, grid.width, 1), minor=True)
-    ax.set_yticks(np.arange(-0.5, grid.height, 1), minor=True)
-    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
-    ax.set_xticks(np.arange(0, grid.width, 5))
-    ax.set_yticks(np.arange(0, grid.height, 5))
-
-    plt.tight_layout()
-
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Figure saved to: {save_path}")
-
-    if show:
-        plt.show()
-    else:
-        plt.close()
+    _visualize_block_attribute(
+        grid=grid,
+        attribute='population',
+        cmap='YlOrRd',
+        label='Population',
+        title='Population Distribution',
+        save_path=save_path,
+        show=show
+    )
 
 
 @overload
@@ -181,41 +211,46 @@ def visualize_units(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] 
     if hasattr(city_or_grid, 'grid'):
         grid = city_or_grid.grid
 
-    fig, ax = plt.subplots(figsize=(10, 9))
+    _visualize_block_attribute(
+        grid=grid,
+        attribute='units',
+        cmap='viridis',
+        label='Housing Units',
+        title='Housing Units Distribution',
+        save_path=save_path,
+        show=show
+    )
 
-    # Create 2D array for units
-    units_grid = np.zeros((grid.height, grid.width))
-    for block in grid.blocks:
-        units_grid[block.y, block.x] = block.units
 
-    im = ax.imshow(units_grid, cmap='viridis', origin='lower',
-                   interpolation='nearest')
-    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label('Housing Units', rotation=270, labelpad=25, fontsize=12,
-                   fontweight='bold')
+@overload
+def visualize_shops(city_or_grid: Grid, save_path: Optional[str] = None, show: bool = True) -> None: ...
 
-    ax.set_title(f'Housing Units Distribution ({grid.width}x{grid.height})',
-                 fontsize=14, fontweight='bold', pad=20)
-    ax.set_xlabel('X Coordinate', fontsize=11)
-    ax.set_ylabel('Y Coordinate', fontsize=11)
+@overload
+def visualize_shops(city_or_grid: 'City', save_path: Optional[str] = None, show: bool = True) -> None: ...
 
-    # Add grid lines
-    ax.set_xticks(np.arange(-0.5, grid.width, 1), minor=True)
-    ax.set_yticks(np.arange(-0.5, grid.height, 1), minor=True)
-    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
-    ax.set_xticks(np.arange(0, grid.width, 5))
-    ax.set_yticks(np.arange(0, grid.height, 5))
+def visualize_shops(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] = None, show: bool = True) -> None:
+    """
+    Create a single-panel visualization showing only shop distribution.
 
-    plt.tight_layout()
+    Args:
+        city_or_grid: Grid object or City object to visualize
+        save_path: Optional path to save the figure
+        show: Whether to display the plot (default: True)
+    """
+    # Extract grid from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        grid = city_or_grid.grid
 
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Figure saved to: {save_path}")
-
-    if show:
-        plt.show()
-    else:
-        plt.close()
+    _visualize_block_attribute(
+        grid=grid,
+        attribute='shops',
+        cmap='Oranges',
+        label='Shops',
+        title='Shop Distribution',
+        save_path=save_path,
+        show=show
+    )
 
 
 @overload
