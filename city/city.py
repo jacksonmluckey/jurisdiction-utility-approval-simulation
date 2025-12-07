@@ -8,6 +8,12 @@ from .grid import Grid
 from .city_centers import CityCentersConfig, place_points
 from .transportation_corridor import TransportationConfig, TransportationNetwork
 from .zoning import ZoningConfig, generate_zoning, get_zoning_summary
+from .generation import (
+    generate_city_centers,
+    generate_transportation_corridors,
+    generate_parks as gen_parks
+)
+from .density import create_density_map
 
 
 @dataclass
@@ -210,9 +216,11 @@ class City:
         self.grid = Grid(width=self.config.width, height=self.config.height)
 
         # Components (populated during generation)
-        self.centers = []
-        self.transport_network = None
-        self.parks = []
+        self.centers = []  # Will be List[CityCenter] after new generation
+        self.corridors = []  # List[TransportationCorridor]
+        self.parks = []  # Will be List[Park] after new generation
+        self.density_map = None  # DensityMap object
+        self.transport_network = None  # Legacy, kept for compatibility
 
         # Track if city has been generated
         self._generated = False
@@ -224,33 +232,91 @@ class City:
         Returns:
             Grid object with populated blocks
         """
-        # Generate density pattern using city centers
+        # Generate city components as objects (don't modify grid yet)
         if self.centers_config:
-            self._generate_centers_density()
+            self.centers = generate_city_centers(
+                self.centers_config,
+                self.config,
+                self.config.height,
+                self.config.width
+            )
         else:
+            # No centers - will use uniform density
+            self.centers = []
+
+        # Generate transportation corridors (if configured)
+        if self.transport_configs and self.centers:
+            self.corridors = generate_transportation_corridors(
+                self.centers,
+                self.transport_configs,
+                self.config.height,
+                self.config.width
+            )
+        else:
+            self.corridors = []
+
+        # Generate parks (if configured)
+        if self.park_configs:
+            self.parks = gen_parks(
+                self.park_configs,
+                self.config.height,
+                self.config.width
+            )
+        else:
+            self.parks = []
+
+        # Create density map from all components
+        if self.centers:
+            self.density_map = create_density_map(
+                self.centers,
+                self.corridors,
+                self.parks,
+                self.config,
+                self.config.density_combination_method
+            )
+            # Apply density map to grid
+            self.density_map.apply_to_grid(self.grid, self.config)
+        else:
+            # No centers - use uniform density
             self._generate_uniform_density()
 
-        # Add transportation corridors
-        if self.transport_configs and self.centers:
-            self._generate_transportation_network()
+        # Mark park blocks on grid (BEFORE applying constraints so they can be skipped)
+        for park in self.parks:
+            for y, x in park.blocks:
+                block = self.grid.get_block(x, y)
+                if block:
+                    block.is_park = True
 
-        # Apply city-wide constraints
+        # Apply city-wide density constraints (will skip park blocks)
         self._apply_density_constraints()
-
-        # Generate parks (after all density calculations)
-        if self.park_configs:
-            self._generate_parks()
 
         # Generate zoning (after parks, using centers and density info)
         if self.zoning_config.enabled:
-            generate_zoning(self.grid, self.centers, self.zoning_config)
-
-        # Generate offices and shops (after zoning)
-        self._generate_offices()
-        self._generate_shops()
+            # Convert centers to dict format for compatibility with zoning
+            centers_dict = self._centers_to_dict()
+            generate_zoning(self.grid, centers_dict, self.zoning_config)
 
         self._generated = True
         return self.grid
+
+    def _centers_to_dict(self) -> List[dict]:
+        """Convert CityCenter objects to dict format for backwards compatibility."""
+        if not self.centers:
+            return []
+
+        # Check if already in dict format (from old code)
+        if self.centers and isinstance(self.centers[0], dict):
+            return self.centers
+
+        # Convert CityCenter objects to dicts
+        centers_dict = []
+        for center in self.centers:
+            centers_dict.append({
+                'position': center.position,
+                'strength': center.strength,
+                'peak_density': center.housing_peak_multiplier * self.config.base_housing_density_km2
+            })
+        return centers_dict
 
     def _generate_centers_density(self):
         """Generate density using city centers model by delegating to CityCenters"""
@@ -340,6 +406,10 @@ class City:
                                    self.config.block_area_km2)
 
         for block in self.grid.blocks:
+            # Skip park blocks
+            if hasattr(block, 'is_park') and block.is_park:
+                continue
+
             # Apply maximum density constraint
             if block.units > max_units_per_block:
                 block.units = max_units_per_block
@@ -510,12 +580,12 @@ class City:
         if not self._generated:
             raise RuntimeError("City must be generated before visualization. Call generate() first.")
 
-        if self.transport_network:
+        if self.corridors or self.transport_network:
             from .visualize import visualize_with_corridors
             visualize_with_corridors(
                 self.grid,
-                self.centers,
-                self.transport_network,
+                self._centers_to_dict(),
+                self.transport_network,  # Still pass for backwards compat
                 save_path=save_path,
                 show=show
             )
@@ -656,4 +726,4 @@ class City:
 
     def get_center_info(self) -> List[dict]:
         """Get information about placed centers"""
-        return self.centers
+        return self._centers_to_dict()

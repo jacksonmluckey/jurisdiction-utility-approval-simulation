@@ -256,7 +256,7 @@ def test_park_size_constraints():
 
     # Check each park size is within bounds
     for park in city.parks:
-        park_size = len(park['blocks'])
+        park_size = len(park.blocks)
         assert park_config.min_size_blocks <= park_size <= park_config.max_size_blocks, \
             f"Park size {park_size} outside bounds [{park_config.min_size_blocks}, {park_config.max_size_blocks}]"
 
