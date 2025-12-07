@@ -95,7 +95,10 @@ def calculate_center_multiplier_map(
     """
     Calculate density multiplier map from ONE city center for ONE density type.
 
-    Uses exponential decay: multiplier(d) = peak_multiplier * exp(-decay_rate * d)
+    Uses exponential decay: multiplier(d) = max(peak_multiplier * exp(-decay_rate * d), 1.0)
+
+    Multipliers are clipped at 1.0 minimum, so centers only provide positive boosts.
+    Being far from a center never reduces density below the base level.
 
     Args:
         center: CityCenter object
@@ -104,7 +107,7 @@ def calculate_center_multiplier_map(
         density_type: "housing", "office", or "shop"
 
     Returns:
-        2D array of multiplier values
+        2D array of multiplier values (all values >= 1.0)
     """
     # Get appropriate peak multiplier based on density type
     if density_type == "housing":
@@ -121,10 +124,11 @@ def calculate_center_multiplier_map(
     y_coords, x_coords = np.ogrid[0:grid_rows, 0:grid_cols]
     distances = np.sqrt((y_coords - center_y)**2 + (x_coords - center_x)**2)
 
-    # Apply exponential decay
+    # Apply exponential decay and clip at 1.0 minimum
+    # Centers only provide positive boosts - being far away doesn't reduce density below base
     multipliers = peak_multiplier * np.exp(-center.decay_rate * distances)
 
-    return multipliers
+    return np.maximum(multipliers, 1.0)
 
 
 def calculate_corridor_multiplier_map(
@@ -188,7 +192,9 @@ def combine_multiplier_maps(
         # Additive: sum(M - 1) + 1
         # This makes 1.0 neutral: [1.1, 1.2, 1.0] → 0.1 + 0.2 + 0.0 + 1 = 1.3
         deviations = [m - 1.0 for m in multiplier_maps]
-        return np.sum(deviations, axis=0) + 1.0
+        result = np.sum(deviations, axis=0) + 1.0
+        # Ensure non-negative multipliers
+        return np.maximum(result, 0.0)
 
     elif method == "multiplicative":
         # Multiplicative: M1 * M2 * M3

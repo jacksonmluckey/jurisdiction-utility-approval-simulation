@@ -254,6 +254,37 @@ def visualize_shops(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] 
 
 
 @overload
+def visualize_offices(city_or_grid: Grid, save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+@overload
+def visualize_offices(city_or_grid: 'City', save_path: Optional[str] = None, show: bool = True) -> None: ...
+
+def visualize_offices(city_or_grid: Union[Grid, 'City'], save_path: Optional[str] = None, show: bool = True) -> None:
+    """
+    Create a single-panel visualization showing only office distribution.
+
+    Args:
+        city_or_grid: Grid object or City object to visualize
+        save_path: Optional path to save the figure
+        show: Whether to display the plot (default: True)
+    """
+    # Extract grid from City object if needed
+    grid = city_or_grid
+    if hasattr(city_or_grid, 'grid'):
+        grid = city_or_grid.grid
+
+    _visualize_block_attribute(
+        grid=grid,
+        attribute='offices',
+        cmap='Purples',
+        label='Offices',
+        title='Office Distribution',
+        save_path=save_path,
+        show=show
+    )
+
+
+@overload
 def print_grid_summary(city_or_grid: Grid) -> None: ...
 
 @overload

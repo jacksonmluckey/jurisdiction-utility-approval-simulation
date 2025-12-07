@@ -18,7 +18,7 @@ from city import CityConfig
 
 
 def test_calculate_center_multiplier_map_exponential_decay():
-    """Test that center multiplier map uses exponential decay."""
+    """Test that center multiplier map uses exponential decay with 1.0 minimum."""
     center = CityCenter(
         position=(10, 10),
         strength=1.0,
@@ -31,13 +31,17 @@ def test_calculate_center_multiplier_map_exponential_decay():
     # At center, multiplier should equal peak
     assert np.isclose(multiplier_map[10, 10], 2.0)
 
-    # At distance 5 from center (10, 15)
-    # multiplier = 2.0 * exp(-0.2 * 5) = 2.0 * exp(-1.0) = 0.736
-    assert np.isclose(multiplier_map[10, 15], 2.0 * np.exp(-1.0), rtol=0.01)
+    # At distance 2 from center (10, 12)
+    # multiplier = max(2.0 * exp(-0.2 * 2), 1.0) = max(1.34, 1.0) = 1.34
+    assert np.isclose(multiplier_map[10, 12], 2.0 * np.exp(-0.4), rtol=0.01)
 
-    # Multiplier should decrease with distance
-    assert multiplier_map[10, 15] < multiplier_map[10, 12]
+    # At distance 5 from center (10, 15)
+    # multiplier = max(2.0 * exp(-0.2 * 5), 1.0) = max(0.736, 1.0) = 1.0 (clipped)
+    assert np.isclose(multiplier_map[10, 15], 1.0, rtol=0.01)
+
+    # Multiplier should decrease with distance (until clipped at 1.0)
     assert multiplier_map[10, 12] < multiplier_map[10, 10]
+    assert multiplier_map[10, 15] >= 1.0  # Always >= 1.0
 
 
 def test_calculate_center_multiplier_map_different_types():
@@ -263,11 +267,13 @@ def test_create_density_map_multiple_centers_additive():
     density_map = create_density_map([center1, center2], [], [], config, "additive")
 
     # At (5, 6) - distance 1 from both centers
-    # Center1 multiplier at (5,6): 2.0 * exp(-0.5 * 1) = 1.213
-    # Center2 multiplier at (5,6): 1.5 * exp(-0.5 * 1) = 0.910
-    # Combined additive: (1.213-1) + (0.910-1) + 1 = 0.213 + (-0.090) + 1 = 1.123
-    # Final density: 1000 * 1.123 = 1123
-    expected_multiplier = (2.0 * np.exp(-0.5) - 1) + (1.5 * np.exp(-0.5) - 1) + 1
+    # Center1 multiplier at (5,6): max(2.0 * exp(-0.5 * 1), 1.0) = max(1.213, 1.0) = 1.213
+    # Center2 multiplier at (5,6): max(1.5 * exp(-0.5 * 1), 1.0) = max(0.910, 1.0) = 1.0 (clipped)
+    # Combined additive: (1.213-1) + (1.0-1) + 1 = 0.213 + 0.0 + 1 = 1.213
+    # Final density: 1000 * 1.213 = 1213
+    mult1 = max(2.0 * np.exp(-0.5), 1.0)  # 1.213
+    mult2 = max(1.5 * np.exp(-0.5), 1.0)  # 1.0 (clipped)
+    expected_multiplier = (mult1 - 1) + (mult2 - 1) + 1
     expected_density = 1000.0 * expected_multiplier
     assert np.isclose(density_map.housing_densities[5, 6], expected_density, rtol=0.01)
 

@@ -233,6 +233,16 @@ class City:
         from .visualize import visualize_units
         visualize_units(self.grid, save_path=save_path, show=show)
 
+    def visualize_shops(self, save_path: Optional[str] = None, show: bool = True):
+        """Visualize only shop distribution"""
+        from .visualize import visualize_shops
+        visualize_shops(self.grid, save_path=save_path, show=show)
+
+    def visualize_offices(self, save_path: Optional[str] = None, show: bool = True):
+        """Visualize only office distribution"""
+        from .visualize import visualize_offices
+        visualize_offices(self.grid, save_path=save_path, show=show)
+
     def visualize_zoning(self, save_path: Optional[str] = None, show: bool = True):
         """Visualize zoning map showing density levels and allowed uses"""
         if not self.zoning_config.enabled:

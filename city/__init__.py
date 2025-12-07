@@ -10,6 +10,8 @@ from .visualize import (
     visualize_grid,
     visualize_population,
     visualize_units,
+    visualize_shops,
+    visualize_offices,
     visualize_with_corridors,
     visualize_zoning,
     print_grid_summary
@@ -36,6 +38,8 @@ __all__ = [
     'visualize_grid',
     'visualize_population',
     'visualize_units',
+    'visualize_shops',
+    'visualize_offices',
     'visualize_with_corridors',
     'visualize_zoning',
     'print_grid_summary'

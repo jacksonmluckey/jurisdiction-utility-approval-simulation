@@ -25,6 +25,8 @@ Density is calculated using a unified multiplier-based system in **[density.py](
 
 - Base densities (housing, office, shop) are set in `CityConfig`
 - City centers provide peak multipliers that decay exponentially with distance
+  - Multipliers are clipped at 1.0 minimum - centers only provide positive boosts
+  - Areas far from all centers receive base density (multiplier = 1.0)
 - Transportation corridors provide multipliers for blocks along corridors
 - Parks zero out density for all types
 - Multipliers combine via additive, multiplicative, or max methods
@@ -105,3 +107,16 @@ flowchart TD
     style CreateParks fill:#e1f0ff
     style DensityMap fill:#ffe1f0
 ```
+
+## Visualization
+
+The **[visualize.py](visualize.py)** module provides functions to visualize city data:
+
+- `visualize_grid()`: Two-panel view of population and housing units
+- `visualize_population()`: Single-panel population distribution
+- `visualize_units()`: Single-panel housing units distribution
+- `visualize_shops()`: Single-panel shop distribution
+- `visualize_offices()`: Single-panel office distribution
+- `visualize_with_corridors()`: Three-panel view with corridors and centers
+- `visualize_zoning()`: Four-panel view of zoning information
+- `print_grid_summary()`: Print summary statistics

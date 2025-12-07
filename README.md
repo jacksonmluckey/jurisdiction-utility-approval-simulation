@@ -7,6 +7,8 @@ A Python simulation framework for generating realistic urban environments with c
 ### Urban Density Patterns
 - **Polycentric Cities**: Generate cities with multiple activity centers, each with configurable strength and density decay
 - **Multiplier-Based System**: Base densities (housing, office, shop) are set city-wide; centers and corridors provide multipliers
+  - Center multipliers are clipped at 1.0 minimum - centers only boost density, never reduce it
+  - Areas far from all centers receive base density
 - **Unified Calculation**: All three density types use the same combination logic (additive, multiplicative, or max)
 - **Flexible Density Control**: Set maximum and minimum housing density in units per km²
 - **Noise and Variation**: Add realistic variation to housing units using proportional or custom noise functions
@@ -101,6 +103,12 @@ city.generate()
 # View summary and visualize
 city.summary()
 city.visualize()
+
+# Or use specific visualizations
+city.visualize_population()
+city.visualize_units()
+city.visualize_shops()
+city.visualize_offices()
 ```
 
 ## Configuration Details

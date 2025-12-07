@@ -11,6 +11,7 @@ This notebook demonstrates generating a 200x200 block city with multiple activit
 
 ```{python}
 from city import (
+    City,
     generate_city,
     CityConfig,
     CityCentersConfig,
@@ -27,8 +28,8 @@ config = CityConfig(
     width=200,
     height=200,
     block_size_meters=100.0,
-    base_housing_density_km2=1500.0,
-    #base_office_density_km2=0,
+    base_housing_density_km2=2500.0,
+    base_office_density_km2=10,
     base_shop_density_km2=100,
     max_density_units_per_km2=60000.0,
     max_density_offices_per_km2=100000,
@@ -41,8 +42,8 @@ config = CityConfig(
 # Configure city centers
 centers_config = CityCentersConfig(
     num_centers=5,
-    primary_density_km2=60000.0,
-    office_density_km2=75000,
+    primary_density_km2=40000.0,
+    office_density_km2=60000,
     shop_density_km2=5000,
     density_decay_rate=0.08,
     min_center_separation_blocks=15
@@ -74,7 +75,8 @@ zoning_config = ZoningConfig(
     enabled=True,
     low_density_threshold=30,
     medium_density_threshold=70,
-    center_radius_blocks=4
+    center_radius_blocks=4,
+    auto_upzone_enabled = True,
 )
 ```
 
@@ -99,6 +101,14 @@ city.summary()
 ```{python}
 # Population and housing distribution
 city.visualize()
+```
+
+```{python}
+city.visualize_offices()
+```
+
+```{python}
+city.visualize_shops()
 ```
 
 ```{python}
