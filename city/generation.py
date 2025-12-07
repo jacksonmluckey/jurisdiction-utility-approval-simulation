@@ -262,10 +262,12 @@ def generate_transportation_corridors(
         )
 
         # Create TransportationCorridor object
-        # Get multipliers from config, defaulting to 1.0 if not specified
-        housing_mult = getattr(config, 'housing_multiplier', getattr(config, 'density_multiplier', 1.0))
-        office_mult = getattr(config, 'office_multiplier', 1.0)
-        shop_mult = getattr(config, 'shop_multiplier', 1.0)
+        # Get multipliers from config
+        # housing_multiplier uses density_multiplier (backwards compatible)
+        housing_mult = getattr(config, 'housing_multiplier', config.density_multiplier)
+        # office and shop default to 1.0 (neutral) if not explicitly set
+        office_mult = config.office_multiplier if config.office_multiplier is not None else 1.0
+        shop_mult = config.shop_multiplier if config.shop_multiplier is not None else 1.0
 
         corridor = TransportationCorridor(
             corridor_type=config.corridor_type.value if hasattr(config.corridor_type, 'value') else str(config.corridor_type),
