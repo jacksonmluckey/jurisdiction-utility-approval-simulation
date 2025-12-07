@@ -252,13 +252,13 @@ def _apply_auto_upzone_uses(grid, config: ZoningConfig) -> int:
     return upzoned_count
 
 
-def generate_zoning(grid, centers: List[dict], config: ZoningConfig) -> None:
+def generate_zoning(grid, centers: List, config: ZoningConfig) -> None:
     """
     Generate zoning for all blocks in the grid.
 
     Args:
         grid: Grid object containing blocks
-        centers: List of activity centers with position information
+        centers: List of CityCenter objects with position information
         config: ZoningConfig with parameters for zoning generation
     """
     if not config.enabled:
@@ -266,7 +266,7 @@ def generate_zoning(grid, centers: List[dict], config: ZoningConfig) -> None:
 
     # First, zone centers for all uses at high density
     for center in centers:
-        center_y, center_x = center['position']
+        center_y, center_x = center.position
         for block in grid.blocks:
             distance = np.sqrt((block.x - center_x)**2 + (block.y - center_y)**2)
             if distance <= config.center_radius_blocks:

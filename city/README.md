@@ -8,43 +8,40 @@ This simulation generates realistic urban density patterns on a grid-based city 
 
 The simulation uses a grid-based spatial model:
 
-- **[Block](block.py)**: The fundamental unit representing a city block with population, housing units, commercial uses, and zoning
+- **[Block](block.py)**: The fundamental unit representing a city block with population, housing units, offices, shops, and zoning
 - **[Grid](grid.py)**: A container holding all blocks in a 2D coordinate system
 
-### Density Generation
+### Generation (Functional)
 
-The simulation creates realistic urban density patterns using a **polycentric model**:
+City components are generated using pure functions in **[generation.py](generation.py)**:
 
-- **[PolycentricCity](polycentric_city.py)**: Generates density using multiple activity centers where density decays exponentially with distance
-- Centers can be distributed uniformly (evenly spaced), clustered (grouped together), or randomly
-- Each center contributes to nearby blocks, with contributions summing additively
-- Supports configurable decay rates to simulate monocentric vs. polycentric cities
+- `generate_city_centers()`: Creates activity centers with density multipliers calculated from absolute densities
+- `generate_transportation_corridors()`: Generates corridor blocks (radial, inter-center, ring, or grid patterns)
+- `generate_parks()`: Places parks with configurable size and distribution
 
-### Transportation Networks
+### Density Calculation (Multiplier-Based)
 
-Transportation infrastructure boosts density along corridors:
+Density is calculated using a unified multiplier-based system in **[density.py](density.py)**:
 
-- **[TransportationNetwork](transportation_corridor.py)**: Creates corridor patterns (radial, inter-center connections, ring roads, or orthogonal grids)
-- Corridors have configurable width and density multipliers
-- When corridors overlap, the maximum multiplier applies
-- Shops receive additional density boost along corridors
+- Base densities (housing, office, shop) are set in `CityConfig`
+- City centers provide peak multipliers that decay exponentially with distance
+  - Multipliers are clipped at 1.0 minimum - centers only provide positive boosts
+  - Areas far from all centers receive base density (multiplier = 1.0)
+- Transportation corridors provide multipliers for blocks along corridors
+- Parks zero out density for all types
+- Multipliers combine via additive, multiplicative, or max methods
+- Final density = base_density × combined_multiplier
+
+All three density types (housing, office, shop) use the same combination logic
 
 ### Zoning System
 
-Zoning regulates allowed uses and density levels:
+Zoning regulates allowed uses and density levels via **[zoning.py](zoning.py)**:
 
-- **[Zoning](zoning.py)**: Defines allowed uses (residential, office, commercial) and maximum density (low, medium, high) for each block
+- Defines allowed uses (residential, office, commercial) and maximum density (low, medium, high) for each block
 - Automatically zones areas near centers for mixed-use high-density development
 - Zones remaining blocks based on their housing unit density
 - Supports optional automatic upzoning based on neighboring blocks
-
-### Commercial Uses
-
-The simulation generates office and retail activity:
-
-- **Offices**: Concentrated at city centers with exponential decay
-- **Shops**: Concentrated at centers with additional boost along transportation corridors
-- Both respect zoning restrictions
 
 ### Parks
 
@@ -52,70 +49,74 @@ Parks create green space throughout the city:
 
 - Configurable number, size, and placement strategy (random or dispersed)
 - Can be square or circular shaped
-- Remove housing/population from park blocks
+- Zero out all density types (housing, offices, shops)
+- Supports multiple park configurations
 
 ## Main Interface
 
 The **[City](city.py)** class provides a unified interface that orchestrates all components:
 
-1. Generates polycentric density patterns (or uniform density as fallback)
-2. Creates transportation networks and applies corridor effects
-3. Applies city-wide density constraints (min/max)
-4. Generates parks
+1. Generates city components as objects (centers, corridors, parks)
+2. Creates density map from all components using multiplier system
+3. Applies density map to grid blocks
+4. Applies city-wide density constraints (min/max)
 5. Applies zoning rules
-6. Generates office and retail distribution
+6. Returns generated grid
 
-Configure the city using `CityConfig`, `PolycentricConfig`, `TransportationConfig`, `ParkConfig`, and `ZoningConfig`, then call `generate()` to create the simulation.
+Configure the city using `CityConfig`, `CityCentersConfig`, `TransportationConfig`, `ParkConfig`, and `ZoningConfig`, then call `generate()` to create the simulation.
 
 ## Simulation Flow
 
-The following flowchart shows the generation process when calling `city.generate()`:
+The generation process follows a functional approach:
 
 ```mermaid
 flowchart TD
-    Start([Initialize City]) --> Config[Configure City Parameters<br/>CityConfig, PolycentricConfig, etc.]
+    Start([Initialize City]) --> Config[Configure City Parameters<br/>CityConfig, CityCentersConfig, etc.]
     Config --> Generate[Call generate]
-    Generate --> Density{Polycentric<br/>Config?}
+    Generate --> GenCenters{Centers<br/>Config?}
 
-    Density -->|Yes| PlaceCenters[Place Activity Centers<br/>uniform/clustered/random]
-    PlaceCenters --> CalcDensity[Calculate Housing Units<br/>exponential decay from centers]
+    GenCenters -->|Yes| CreateCenters[Generate City Centers<br/>calculate peak multipliers]
+    GenCenters -->|No| NoCenters[No centers]
+    CreateCenters --> GenCorridors
+    NoCenters --> GenCorridors
 
-    Density -->|No| Uniform[Generate Uniform Density]
-    Uniform --> Transport
-    CalcDensity --> Transport
+    GenCorridors{Transport<br/>Configs?}
+    GenCorridors -->|Yes| CreateCorridors[Generate Corridors<br/>radial/inter-center/ring/grid]
+    GenCorridors -->|No| GenParks
+    CreateCorridors --> GenParks
 
-    Transport{Transportation<br/>Configs?}
-    Transport -->|Yes| GenCorridors[Generate Corridors<br/>radial/inter-center/ring/grid]
-    GenCorridors --> ApplyMultiplier[Apply Density Multipliers<br/>to corridor blocks]
-    ApplyMultiplier --> Constraints
+    GenParks{Park<br/>Configs?}
+    GenParks -->|Yes| CreateParks[Generate Parks<br/>place and size]
+    GenParks -->|No| DensityMap
+    CreateParks --> DensityMap
 
-    Transport -->|No| Constraints[Apply Min/Max Density<br/>Constraints]
+    DensityMap[Create Density Map<br/>combine multipliers for housing/office/shop]
+    DensityMap --> ApplyDensity[Apply density map to grid<br/>set units, offices, shops, population]
+    ApplyDensity --> MarkParks[Mark park blocks]
+    MarkParks --> Constraints[Apply min/max constraints]
+    Constraints --> Zoning{Zoning<br/>Enabled?}
 
-    Constraints --> Parks{Park<br/>Config?}
-    Parks -->|Yes| PlaceParks[Place Parks<br/>random or dispersed]
-    PlaceParks --> MarkParks[Set park blocks:<br/>units=0, population=0]
-    MarkParks --> Zoning
-
-    Parks -->|No| Zoning{Zoning<br/>Enabled?}
-
-    Zoning -->|Yes| ZoneCenter[Zone centers as<br/>mixed-use high-density]
-    ZoneCenter --> ZoneBlocks[Zone remaining blocks<br/>by housing unit density]
-    ZoneBlocks --> AutoUpzone{Auto-upzone<br/>Enabled?}
-    AutoUpzone -->|Yes| Upzone[Upzone based on<br/>neighboring blocks]
-    AutoUpzone -->|No| Offices
-    Upzone --> Offices
-
-    Zoning -->|No| Offices[Generate Office Distribution<br/>exponential decay from centers]
-
-    Offices --> CheckOfficeZoning[Respect office zoning<br/>restrictions]
-    CheckOfficeZoning --> Shops[Generate Shop Distribution<br/>decay from centers + corridor boost]
-    Shops --> CheckShopZoning[Respect commercial<br/>zoning restrictions]
-    CheckShopZoning --> Complete([City Generated])
+    Zoning -->|Yes| ZoneBlocks[Generate zoning<br/>density levels and uses]
+    Zoning -->|No| Complete
+    ZoneBlocks --> Complete([City Generated])
 
     style Start fill:#e1f5e1
     style Complete fill:#e1f5e1
-    style PlaceCenters fill:#fff4e1
-    style GenCorridors fill:#fff4e1
-    style PlaceParks fill:#e1f0ff
-    style ZoneCenter fill:#ffe1f0
+    style CreateCenters fill:#fff4e1
+    style CreateCorridors fill:#fff4e1
+    style CreateParks fill:#e1f0ff
+    style DensityMap fill:#ffe1f0
 ```
+
+## Visualization
+
+The **[visualize.py](visualize.py)** module provides functions to visualize city data:
+
+- `visualize_grid()`: Two-panel view of population and housing units
+- `visualize_population()`: Single-panel population distribution
+- `visualize_units()`: Single-panel housing units distribution
+- `visualize_shops()`: Single-panel shop distribution
+- `visualize_offices()`: Single-panel office distribution
+- `visualize_with_corridors()`: Three-panel view with corridors and centers
+- `visualize_zoning()`: Four-panel view of zoning information
+- `print_grid_summary()`: Print summary statistics

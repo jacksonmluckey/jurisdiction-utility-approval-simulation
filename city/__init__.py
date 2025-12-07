@@ -2,13 +2,16 @@ from .block import Block
 from .district import District
 from .grid import Grid
 from .city import City, CityConfig, ParkConfig
-from .polycentric_city import PolycentricCity, PolycentricConfig
+from .city_centers import CityCenters, CityCentersConfig, place_points
 from .transportation_corridor import TransportationConfig, TransportationNetwork, CorridorType
 from .zoning import ZoningConfig, Zoning, Use, Density
+from .generate_city import generate_city
 from .visualize import (
     visualize_grid,
     visualize_population,
     visualize_units,
+    visualize_shops,
+    visualize_offices,
     visualize_with_corridors,
     visualize_zoning,
     print_grid_summary
@@ -21,8 +24,9 @@ __all__ = [
     'City',
     'CityConfig',
     'ParkConfig',
-    'PolycentricCity',
-    'PolycentricConfig',
+    'CityCenters',
+    'CityCentersConfig',
+    'place_points',
     'TransportationConfig',
     'TransportationNetwork',
     'CorridorType',
@@ -30,9 +34,12 @@ __all__ = [
     'Zoning',
     'Use',
     'Density',
+    'generate_city',
     'visualize_grid',
     'visualize_population',
     'visualize_units',
+    'visualize_shops',
+    'visualize_offices',
     'visualize_with_corridors',
     'visualize_zoning',
     'print_grid_summary'

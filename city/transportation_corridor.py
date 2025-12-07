@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass, field
-from typing import List, Tuple, Set
+from typing import List, Tuple, Set, Optional
 from enum import Enum
 
 class CorridorType(Enum):
@@ -19,7 +19,10 @@ class TransportationConfig:
         corridor_type: Type of corridor pattern (RADIAL, INTER_CENTER, RING, or GRID)
         corridor_width_blocks: Width of corridor in blocks. Use 1 for minor arterials,
             2-3 for major transit, 4+ for wide transportation zones (default: 2)
-        density_multiplier: Density boost along corridors. 1.15 = 15% increase (default: 1.15)
+        density_multiplier: Housing density boost along corridors. 1.15 = 15% increase.
+            Also used as default for office_multiplier and shop_multiplier if not set (default: 1.15)
+        office_multiplier: Office density boost along corridors. If None, uses density_multiplier (default: None)
+        shop_multiplier: Shop density boost along corridors. If None, uses density_multiplier (default: None)
         connect_all_centers: If True, connect all center pairs; if False, only nearest
             neighbors (default: True)
         max_corridor_distance: Maximum distance to connect centers. None = no limit (default: None)
@@ -32,12 +35,14 @@ class TransportationConfig:
     corridor_type: CorridorType = CorridorType.INTER_CENTER
     corridor_width_blocks: int = 2
     density_multiplier: float = 1.15
+    office_multiplier: Optional[float] = None
+    shop_multiplier: Optional[float] = None
     connect_all_centers: bool = True
-    max_corridor_distance: int = None
+    max_corridor_distance: Optional[int] = None
     include_ring_roads: bool = False
     ring_road_radius_blocks: int = 10
     radial_corridors_count: int = 4
-    grid_spacing_blocks: int = None
+    grid_spacing_blocks: Optional[int] = None
 
 class TransportationNetwork:
     """

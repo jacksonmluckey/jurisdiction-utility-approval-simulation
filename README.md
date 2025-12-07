@@ -6,12 +6,17 @@ A Python simulation framework for generating realistic urban environments with c
 
 ### Urban Density Patterns
 - **Polycentric Cities**: Generate cities with multiple activity centers, each with configurable strength and density decay
-- **Flexible Density Control**: Set maximum and minimum housing density in units per km�
+- **Multiplier-Based System**: Base densities (housing, office, shop) are set city-wide; centers and corridors provide multipliers
+  - Center multipliers are clipped at 1.0 minimum - centers only boost density, never reduce it
+  - Areas far from all centers receive base density
+- **Unified Calculation**: All three density types use the same combination logic (additive, multiplicative, or max)
+- **Flexible Density Control**: Set maximum and minimum housing density in units per km²
 - **Noise and Variation**: Add realistic variation to housing units using proportional or custom noise functions
 
 ### Commercial Development
-- **Office Districts**: Offices concentrate near city centers with exponential decay, creating realistic central business districts
-- **Retail/Shops**: Shops cluster at centers and along transportation corridors, simulating commercial activity patterns
+- **Office Districts**: Office density uses same multiplier-based system as housing with separate peak multipliers
+- **Retail/Shops**: Shop density calculated with multipliers from centers and corridors
+- **Separate Parameters**: Configure office and shop densities independently via city centers and transportation configs
 - **Zoning Integration**: Commercial development respects zoning regulations when enabled
 
 ### Transportation Networks
@@ -54,24 +59,24 @@ uv run simulation.py
 ## Basic Usage
 
 ```python
-from city import City, CityConfig, PolycentricConfig, ParkConfig, ZoningConfig
+from city import City, CityConfig, CityCentersConfig, ParkConfig, ZoningConfig
 
 # Configure the city
 config = CityConfig(
     width=50,
     height=50,
     block_size_meters=100.0,
-    max_density_units_per_km2=1235.0,
-    min_density_units_per_km2=12.5,
-    max_office_density_per_km2=741.0,
-    max_shop_density_per_km2=494.0,
+    max_density_units_per_km2=12355.0,
+    min_density_units_per_km2=124.0,
+    max_density_offices_per_km2=7413.0,
+    max_density_shops_per_km2=4942.0,
     persons_per_unit=2.5
 )
 
-# Configure polycentric density pattern
-polycentric = PolycentricConfig(
+# Configure city centers density pattern
+centers = CityCentersConfig(
     num_centers=3,
-    primary_density_km2=618.0,
+    primary_density_km2=6178.0,
     density_decay_rate=0.20
 )
 
@@ -89,8 +94,8 @@ zoning = ZoningConfig(enabled=True)
 # Create and generate the city
 city = City(
     config=config,
-    polycentric_config=polycentric,
-    park_config=parks,
+    centers_config=centers,
+    park_configs=parks,
     zoning_config=zoning
 )
 city.generate()
@@ -98,6 +103,12 @@ city.generate()
 # View summary and visualize
 city.summary()
 city.visualize()
+
+# Or use specific visualizations
+city.visualize_population()
+city.visualize_units()
+city.visualize_shops()
+city.visualize_offices()
 ```
 
 ## Configuration Details
@@ -107,13 +118,13 @@ city.visualize()
 - **Block Area**: Automatically calculated as km� from block size
   - 100m � 100m = 0.01 km�
 - **Density Units**: All density parameters are in units per km�
-  - Suburban: 125-500 units/km�
-  - Urban: 500-1500 units/km�
-  - High-Density Urban: 1500-3700+ units/km�
+  - Suburban: 1235-12355 units/km�
+  - Urban: 12355-37065 units/km�
+  - High-Density Urban: 37065-91435+ units/km�
 
 ### Commercial Density Parameters
-- `max_office_density_per_km2`: Maximum office units per km� (default: 741.0)
-- `max_shop_density_per_km2`: Maximum retail units per km� (default: 494.0)
+- `max_density_offices_per_km2`: Maximum office units per km� (default: 7413.0)
+- `max_density_shops_per_km2`: Maximum retail units per km� (default: 4942.0)
 - `office_center_concentration`: Controls office concentration at centers (default: 0.15)
 - `shop_center_concentration`: Controls shop concentration at centers (default: 0.10)
 - `shop_corridor_multiplier`: Density boost for shops along transit corridors (default: 1.3)
@@ -193,19 +204,19 @@ urban = CityConfig(
     width=80,
     height=80,
     block_size_meters=100.0,
-    max_density_units_per_km2=2470.0,
-    max_office_density_per_km2=1482.0,
-    max_shop_density_per_km2=988.0,
+    max_density_units_per_km2=24710.0,
+    max_density_offices_per_km2=14826.0,
+    max_density_shops_per_km2=9884.0,
     persons_per_unit=2.0
 )
 
-polycentric = PolycentricConfig(
+centers = CityCentersConfig(
     num_centers=7,
-    primary_density_km2=988.0,
+    primary_density_km2=9884.0,
     density_decay_rate=0.08
 )
 
-city = City(config=urban, polycentric_config=polycentric)
+city = City(config=urban, centers_config=centers)
 city.generate()
 ```
 
